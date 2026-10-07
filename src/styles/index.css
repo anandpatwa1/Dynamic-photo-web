@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Accent is swappable at runtime from Settings → Themes. */
+    --accent-50: 251 247 239;
+    --accent-100: 245 234 212;
+    --accent-500: 184 134 59;
+    --accent-600: 156 109 44;
+    --accent-700: 124 86 36;
+  }
+
+  :root[data-accent='olive'] {
+    --accent-50: 242 244 239;
+    --accent-100: 226 230 219;
+    --accent-500: 92 102 80;
+    --accent-600: 74 83 65;
+    --accent-700: 59 66 52;
+  }
+
+  * {
+    @apply border-ink-200;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  body {
+    @apply bg-ink-50 text-ink-900 font-sans antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Numbers in tables and totals must align across rows. */
+  .tabular,
+  td.numeric,
+  th.numeric {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  h1, h2, h3, h4 {
+    @apply text-ink-900 font-semibold;
+  }
+
+  /* A single, consistent focus ring across every interactive element. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500/40 ring-offset-2 ring-offset-white;
+  }
+
+  /* Remove the number-input spinners — amounts are typed, not stepped. */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  ::selection {
+    @apply bg-brand-200/60 text-ink-900;
+  }
+}
+
+@layer components {
+  /* Slim, unobtrusive scrollbars — visible only where content actually scrolls. */
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.ink.300') transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-ink-300/70;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-400;
+  }
+
+  /* Subtle paper texture behind the app shell, as in the reference sheets. */
+  .bg-paper {
+    background-color: theme('colors.ink.50');
+    background-image:
+      radial-gradient(at 0% 0%, rgb(184 134 59 / 0.04) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgb(92 102 80 / 0.035) 0px, transparent 45%);
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-ink-200/60;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.6),
+      transparent
+    );
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  /* Hairline divider that matches the reference layouts' rules. */
+  .hairline {
+    @apply border-ink-200/80;
+  }
+}
+
+/* Toast styling kept in sync with the card language. */
+.toast-surface {
+  @apply rounded-xl bg-white px-4 py-3 text-sm text-ink-800 shadow-popover;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

@@ -1,0 +1,1 @@
+const n=r=>Array.isArray(r)?r:r&&typeof r=="object"?Object.fromEntries(Object.entries(r).map(([t,e])=>[t,n(e)]).filter(([,t])=>t!==""&&t!==void 0)):r,i=r=>Array.isArray(r)?r:r&&typeof r=="object"?Object.fromEntries(Object.entries(r).map(([t,e])=>[t,i(e)]).filter(([,t])=>t!==void 0)):typeof r=="string"?r.trim():r;export{i as k,n as p};

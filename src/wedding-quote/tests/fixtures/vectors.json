@@ -1,0 +1,326 @@
+{
+  "_comment": "Shared test vectors. Identical copy in client/src/wedding-quote/tests/fixtures/vectors.json — both engines must produce these results.",
+  "reels": [
+    {
+      "name": "1-2 x3 -> 3-4",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "1-2 Reels"
+          ],
+          "times": 3
+        }
+      ],
+      "set": null,
+      "expect": "3-4 Reels"
+    },
+    {
+      "name": "2-3 x2 -> 4-5",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "2-3 Reels"
+          ],
+          "times": 2
+        }
+      ],
+      "set": null,
+      "expect": "4-5 Reels"
+    },
+    {
+      "name": "item 4-5 + set 2 -> 6-7",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "2-3 Reels"
+          ],
+          "times": 2
+        }
+      ],
+      "set": "2 Reels",
+      "expect": "6-7 Reels"
+    },
+    {
+      "name": "different items summed",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "1-2 Reels"
+          ],
+          "times": 1
+        },
+        {
+          "id": "b",
+          "deliverables": [
+            "2-3 Reels"
+          ],
+          "times": 1
+        }
+      ],
+      "set": null,
+      "expect": "3-5 Reels"
+    },
+    {
+      "name": "lo == hi prints single",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "2 Reels"
+          ],
+          "times": 2
+        }
+      ],
+      "set": "2 Reels",
+      "expect": "6 Reels"
+    },
+    {
+      "name": "no reels anywhere",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "All portraits"
+          ],
+          "times": 2
+        }
+      ],
+      "set": "300 Photos Album",
+      "expect": null
+    },
+    {
+      "name": "set with reels but no items",
+      "items": [],
+      "set": "2 Reels",
+      "expect": "2 Reels"
+    },
+    {
+      "name": "Cinematic Reel label",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "1-2 Cinematic Reel"
+          ],
+          "times": 2
+        }
+      ],
+      "set": null,
+      "expect": "2-3 Reels"
+    },
+    {
+      "name": "Highlight Reels set label kept",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "1 Reel"
+          ],
+          "times": 1
+        }
+      ],
+      "set": "1-2 Highlight Reels",
+      "expect": "2-3 Highlight Reels"
+    },
+    {
+      "name": "en dash range",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "1–2 Reels"
+          ],
+          "times": 3
+        }
+      ],
+      "set": null,
+      "expect": "3-4 Reels"
+    },
+    {
+      "name": "word 'reels' only as whole word",
+      "items": [
+        {
+          "id": "a",
+          "deliverables": [
+            "2 Reelstock clips"
+          ],
+          "times": 1
+        }
+      ],
+      "set": null,
+      "expect": null
+    }
+  ],
+  "pricing": [
+    {
+      "name": "A3 example: bride + groom + both of a 10,000 item",
+      "days": [
+        {
+          "entries": [
+            {
+              "itemId": "pv",
+              "side": "bride",
+              "selling": 10000,
+              "cost": 6000,
+              "mrp": 12000
+            },
+            {
+              "itemId": "pv",
+              "side": "groom",
+              "selling": 10000,
+              "cost": 6000,
+              "mrp": 12000
+            }
+          ]
+        },
+        {
+          "entries": [
+            {
+              "itemId": "pv",
+              "side": "both",
+              "selling": 10000,
+              "cost": 6000,
+              "mrp": 12000
+            }
+          ]
+        }
+      ],
+      "lines": [],
+      "addOn": null,
+      "override": {},
+      "expect": {
+        "selling": 30000,
+        "cost": 18000,
+        "mrp": 36000,
+        "displaySelling": 30000,
+        "profit": 12000,
+        "marginPct": 40
+      }
+    },
+    {
+      "name": "lines + add-on (printed only) + override",
+      "days": [
+        {
+          "entries": [
+            {
+              "itemId": "a",
+              "side": "both",
+              "selling": 70000,
+              "cost": 40000,
+              "mrp": 90000
+            }
+          ]
+        }
+      ],
+      "lines": [
+        {
+          "text": "Album",
+          "selling": 2000,
+          "cost": 1000,
+          "mrp": 3000
+        }
+      ],
+      "addOn": {
+        "priceEffect": "add",
+        "priceAmount": 10000
+      },
+      "override": {
+        "selling": 80000
+      },
+      "expect": {
+        "selling": 72000,
+        "cost": 41000,
+        "mrp": 93000,
+        "displaySelling": 80000,
+        "profit": 39000,
+        "marginPct": 48.8
+      }
+    },
+    {
+      "name": "add-on none never changes total",
+      "days": [
+        {
+          "entries": [
+            {
+              "itemId": "a",
+              "side": "bride",
+              "selling": 5000,
+              "cost": 2000,
+              "mrp": 6000
+            }
+          ]
+        }
+      ],
+      "lines": [],
+      "addOn": {
+        "priceEffect": "none",
+        "priceAmount": 5000
+      },
+      "override": {},
+      "expect": {
+        "selling": 5000,
+        "cost": 2000,
+        "mrp": 6000,
+        "displaySelling": 5000,
+        "profit": 3000,
+        "marginPct": 60
+      }
+    },
+    {
+      "name": "add-on with a price never changes the total",
+      "days": [
+        {
+          "entries": [
+            {
+              "itemId": "a",
+              "side": "bride",
+              "selling": 1000,
+              "cost": 500,
+              "mrp": 1200
+            }
+          ]
+        }
+      ],
+      "lines": [],
+      "addOn": {
+        "priceEffect": "add",
+        "priceAmount": 5000
+      },
+      "override": {},
+      "expect": {
+        "selling": 1000,
+        "cost": 500,
+        "mrp": 1200,
+        "displaySelling": 1000,
+        "profit": 500,
+        "marginPct": 50
+      }
+    }
+  ],
+  "money": [
+    {
+      "in": 110000,
+      "out": "₹1,10,000"
+    },
+    {
+      "in": 82000,
+      "out": "₹82,000"
+    },
+    {
+      "in": 999,
+      "out": "₹999"
+    },
+    {
+      "in": 12345678,
+      "out": "₹1,23,45,678"
+    },
+    {
+      "in": 0,
+      "out": "₹0"
+    }
+  ]
+}

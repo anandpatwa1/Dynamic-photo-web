@@ -1,0 +1,182 @@
+export const APP_NAME = import.meta.env.VITE_APP_NAME || 'Dynamic Production';
+
+export const ROLES = {
+  ADMIN: 'admin',
+  MANAGER: 'manager',
+  STAFF: 'staff',
+};
+
+export const ROLE_OPTIONS = [
+  { value: ROLES.ADMIN, label: 'Admin', description: 'Full access, including settings and users' },
+  { value: ROLES.MANAGER, label: 'Manager', description: 'Manage clients, documents and projects' },
+  { value: ROLES.STAFF, label: 'Staff', description: 'View and update assigned work' },
+];
+
+export const DOCUMENT_TYPES = {
+  QUOTATION: 'quotation',
+  ESTIMATE: 'estimate',
+  INVOICE: 'invoice',
+};
+
+/**
+ * One Documents module, three faces. Everything below the `type` switch is
+ * identical — only labels and the default status vocabulary change.
+ */
+export const DOCUMENT_TYPE_OPTIONS = [
+  {
+    value: DOCUMENT_TYPES.QUOTATION,
+    label: 'Quotation',
+    description: 'A priced proposal shared before work is confirmed',
+    partyLabel: 'Quoted To',
+  },
+  {
+    value: DOCUMENT_TYPES.ESTIMATE,
+    label: 'Estimate',
+    description: 'An indicative cost breakdown for planning',
+    partyLabel: 'Estimate For',
+  },
+  {
+    value: DOCUMENT_TYPES.INVOICE,
+    label: 'Invoice',
+    description: 'A payable bill issued after work is confirmed',
+    partyLabel: 'Billed To',
+  },
+];
+
+export const DOCUMENT_STATUS = {
+  DRAFT: 'draft',
+  SENT: 'sent',
+  ACCEPTED: 'accepted',
+  REJECTED: 'rejected',
+  PARTIALLY_PAID: 'partially_paid',
+  PAID: 'paid',
+  CANCELLED: 'cancelled',
+};
+
+/** `tone` maps to the Badge component's variants. */
+export const DOCUMENT_STATUS_META = {
+  [DOCUMENT_STATUS.DRAFT]: { label: 'Draft', tone: 'neutral' },
+  [DOCUMENT_STATUS.SENT]: { label: 'Sent', tone: 'info' },
+  [DOCUMENT_STATUS.ACCEPTED]: { label: 'Accepted', tone: 'success' },
+  [DOCUMENT_STATUS.REJECTED]: { label: 'Rejected', tone: 'danger' },
+  [DOCUMENT_STATUS.PARTIALLY_PAID]: { label: 'Partially Paid', tone: 'warning' },
+  [DOCUMENT_STATUS.PAID]: { label: 'Paid', tone: 'success' },
+  [DOCUMENT_STATUS.CANCELLED]: { label: 'Cancelled', tone: 'neutral' },
+};
+
+export const CLIENT_STATUS = {
+  LEAD: 'lead',
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  ARCHIVED: 'archived',
+};
+
+export const CLIENT_STATUS_META = {
+  [CLIENT_STATUS.LEAD]: { label: 'Lead', tone: 'warning' },
+  [CLIENT_STATUS.ACTIVE]: { label: 'Active', tone: 'success' },
+  [CLIENT_STATUS.INACTIVE]: { label: 'Inactive', tone: 'neutral' },
+  [CLIENT_STATUS.ARCHIVED]: { label: 'Archived', tone: 'neutral' },
+};
+
+export const PROJECT_STATUS = {
+  ENQUIRY: 'enquiry',
+  CONFIRMED: 'confirmed',
+  SHOOTING: 'shooting',
+  EDITING: 'editing',
+  DELIVERED: 'delivered',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+};
+
+export const PROJECT_STATUS_META = {
+  [PROJECT_STATUS.ENQUIRY]: { label: 'Enquiry', tone: 'neutral' },
+  [PROJECT_STATUS.CONFIRMED]: { label: 'Confirmed', tone: 'info' },
+  [PROJECT_STATUS.SHOOTING]: { label: 'Shooting', tone: 'brand' },
+  [PROJECT_STATUS.EDITING]: { label: 'Editing', tone: 'warning' },
+  [PROJECT_STATUS.DELIVERED]: { label: 'Delivered', tone: 'success' },
+  [PROJECT_STATUS.COMPLETED]: { label: 'Completed', tone: 'success' },
+  [PROJECT_STATUS.CANCELLED]: { label: 'Cancelled', tone: 'danger' },
+};
+
+export const PAYMENT_MODES = [
+  { value: 'upi', label: 'UPI' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'cheque', label: 'Cheque' },
+  { value: 'card', label: 'Card' },
+  { value: 'other', label: 'Other' },
+];
+
+export const PAYMENT_STATUS_META = {
+  received: { label: 'Received', tone: 'success' },
+  pending: { label: 'Pending', tone: 'warning' },
+  failed: { label: 'Failed', tone: 'danger' },
+  refunded: { label: 'Refunded', tone: 'neutral' },
+};
+
+export const PACKAGE_CATEGORIES = [
+  { value: 'monthly_content', label: 'Monthly Content' },
+  { value: 'wedding', label: 'Wedding' },
+  { value: 'pre_wedding', label: 'Pre Wedding' },
+  { value: 'corporate', label: 'Corporate' },
+  { value: 'product_shoot', label: 'Product Shoot' },
+  { value: 'drone_shoot', label: 'Drone Shoot' },
+  { value: 'event', label: 'Event' },
+  { value: 'portfolio', label: 'Portfolio' },
+  { value: 'other', label: 'Other' },
+];
+
+/** PDF themes: 2 legacy + 4 new designs */
+export const PDF_THEMES = [
+  {
+    value: 'gold',
+    label: 'Classic Gold',
+    description: 'Warm gold accents with a black table header',
+    swatch: ['#B8863B', '#111111', '#F7EDD9'],
+  },
+  {
+    value: 'olive',
+    label: 'Botanical Olive',
+    description: 'Muted olive with botanical rules and soft cards',
+    swatch: ['#5C6650', '#3B4234', '#EDEFE9'],
+  },
+  {
+    value: 'minimal-white',
+    label: 'Minimal White',
+    description: 'Clean, editorial aesthetic with soft accents',
+    swatch: ['#6366f1', '#1e293b', '#ffffff'],
+  },
+  {
+    value: 'luxury-black',
+    label: 'Luxury Black',
+    description: 'Dark, premium feel with gold accents',
+    swatch: ['#fbbf24', '#000000', '#1f2937'],
+  },
+  {
+    value: 'photography-beige',
+    label: 'Photography Beige',
+    description: 'Warm editorial with terracotta accents',
+    swatch: ['#c85c3c', '#44403c', '#faf8f3'],
+  },
+  {
+    value: 'corporate-blue',
+    label: 'Corporate Blue',
+    description: 'Professional modern design with structured layout',
+    swatch: ['#2563eb', '#1e3a8a', '#f8fafc'],
+  },
+];
+
+export const DISCOUNT_TYPES = [
+  { value: 'flat', label: '₹ Flat' },
+  { value: 'percent', label: '% Percent' },
+];
+
+export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+/**
+ * Turns a `{ value: { label, tone } }` status map into `[{ value, label }]`
+ * for a <Select>. Every list page needs this; defining it once keeps the
+ * option order and labels identical everywhere.
+ */
+export const statusOptions = (meta) =>
+  Object.entries(meta).map(([value, config]) => ({ value, label: config.label }));
