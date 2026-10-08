@@ -7,18 +7,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      // Image slot rules live at the repo root so the client and server share
-      // one definition rather than two copies that drift apart.
-      '@shared': path.resolve(__dirname, '../shared'),
     },
   },
   server: {
     port: 5173,
-    fs: {
-      // The alias above points outside the Vite root; without this the dev
-      // server refuses to serve it.
-      allow: [path.resolve(__dirname, '..')],
-    },
     proxy: {
       // Lets the SPA call same-origin `/api/...` in dev without CORS friction.
       '/api': { target: 'http://localhost:5000', changeOrigin: true },

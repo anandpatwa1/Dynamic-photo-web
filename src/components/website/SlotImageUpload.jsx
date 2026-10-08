@@ -1,6 +1,6 @@
 import { useCallback, useId, useRef, useState } from 'react';
 import { AlertTriangle, ImageUp, Loader2, Trash2 } from 'lucide-react';
-import { IMAGE_SLOTS, formatBytes, validateImage } from '@shared/imageSlots';
+import { IMAGE_SLOTS, formatBytes, validateImage } from '@/constants/imageSlots';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/Button';
 
@@ -29,7 +29,7 @@ const readDimensions = (file) =>
   });
 
 /**
- * Upload control bound to a slot from `shared/imageSlots.js`.
+ * Upload control bound to the client's image-slot rules.
  *
  * Validates in the browser first — not as security, but as courtesy. The server
  * is the authority and re-checks everything; doing it here means an admin on a
