@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, u
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Calculator, Download, Maximize2, PanelRight, PieChart, Redo2, RotateCcw, Undo2, ZoomIn, ZoomOut,
+  ArrowLeft, Calculator, Download, Maximize2, PanelRight, PieChart, Redo2, RotateCcw, Undo2, X, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button, EmptyState, Input, PageLoader } from '@/components/ui';
@@ -40,7 +40,11 @@ const EditorInner = () => {
   const [loadError, setLoadError] = useState(null);
   const [assigned, setAssigned] = useState({ themeIds: [], defaultThemeId: null });
   const [selected, setSelected] = useState(null);
-  const [panel, setPanel] = useState('fields'); // fields | export | null
+  // Keep the desktop inspector open by default. On a phone it is a modal
+  // drawer, so opening it automatically would cover the quote immediately.
+  const [panel, setPanel] = useState(() =>
+    window.matchMedia?.('(min-width: 1024px)').matches ? 'fields' : null,
+  ); // fields | export | null
   const [zoom, setZoom] = useState(0.5);
   const [plan, setPlan] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -134,6 +138,32 @@ const EditorInner = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // The mobile editor is a bottom drawer. Stop the quote behind it from
+  // scrolling and let Escape close it; release the lock if the viewport grows
+  // to desktop size while the drawer is open.
+  useEffect(() => {
+    if (!panel) return undefined;
+
+    const media = window.matchMedia('(max-width: 1023px)');
+    const previousOverflow = document.body.style.overflow;
+    const syncScrollLock = () => {
+      document.body.style.overflow = media.matches ? 'hidden' : previousOverflow;
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape' && media.matches) setPanel(null);
+    };
+
+    syncScrollLock();
+    media.addEventListener?.('change', syncScrollLock);
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      media.removeEventListener?.('change', syncScrollLock);
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [panel]);
+
   // ---- zoom / fit ---------------------------------------------------------
   const fit = useCallback(() => {
     const el = stageRef.current;
@@ -178,7 +208,12 @@ const EditorInner = () => {
           <Button size="sm" variant="ghost" iconOnly icon={Calculator} aria-label={E.recalc}
             onClick={async () => { await save(); const r = await wqQuoteApi.recalculate(quote._id); dispatch({ type: 'load', quote: r.quote }); toast.success(E.recalc); }} />
         )}
-        <Button size="sm" variant={panel === 'fields' ? 'dark' : 'ghost'} iconOnly icon={PanelRight} aria-label={E.panel} aria-pressed={panel === 'fields'} onClick={() => setPanel(panel === 'fields' ? null : 'fields')} />
+        <Button size="sm" variant={panel === 'fields' ? 'dark' : 'secondary'} icon={PanelRight}
+          aria-label={E.panel} aria-pressed={panel === 'fields'}
+          className="lg:hidden" onClick={() => setPanel(panel === 'fields' ? null : 'fields')}>{E.panel}</Button>
+        <Button size="sm" variant={panel === 'fields' ? 'dark' : 'ghost'} iconOnly icon={PanelRight}
+          aria-label={E.panel} aria-pressed={panel === 'fields'} className="hidden lg:inline-flex"
+          onClick={() => setPanel(panel === 'fields' ? null : 'fields')} />
         {perms.exportJpg && <Button size="sm" variant={panel === 'export' ? 'dark' : 'primary'} icon={Download} onClick={() => setPanel(panel === 'export' ? null : 'export')}>JPG</Button>}
         </div>
       </div>
@@ -224,29 +259,91 @@ const EditorInner = () => {
           </div>
         </div>
 
-        {/* right panel */}
+        {/* Mobile panel: a real drawer rather than content placed below the canvas. */}
         {panel && (
-          <aside className="w-full shrink-0 border-l border-ink-200/70 bg-white p-4 lg:sticky lg:top-[7.5rem] lg:h-[calc(100vh-7.5rem)] lg:w-96 lg:overflow-y-auto">
-            {panel === 'fields' && canEdit && <SidePanel quote={quote} apply={apply} studio={studio} theme={theme} addOns={addOns} />}
-            {panel === 'fields' && !canEdit && <p className="text-sm text-ink-500">{T.common.noPermission}</p>}
-            {panel === 'export' && (
-              <ExportPanel
-                quote={quote}
-                theme={theme}
-                studio={studio}
-                plan={plan}
-                defaults={exportDefaults}
-                canExport={perms.exportJpg}
-                onSave={() => (canEdit ? save({ status: 'saved' }) : Promise.resolve(quote))}
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-40 bg-ink-950/35 backdrop-blur-[2px] lg:hidden"
+              aria-label={T.common.close}
+              onClick={() => setPanel(null)}
+            />
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-label={panel === 'fields' ? E.panel : T.export.title}
+              className="fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-4.5rem)] flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl lg:hidden"
+            >
+              <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-ink-300" aria-hidden="true" />
+              <header className="flex shrink-0 items-center justify-between gap-3 border-b border-ink-200/70 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-ink-900">{panel === 'fields' ? E.panel : T.export.title}</p>
+                  <p className="truncate text-xs text-ink-500">{quote.packageSnapshot?.name || T.list.untitled}</p>
+                </div>
+                <Button variant="ghost" size="sm" iconOnly icon={X} aria-label={T.common.close} onClick={() => setPanel(null)} />
+              </header>
+              <div className="scrollbar-slim flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <EditorPanelContent
+                  panel={panel} canEdit={canEdit} quote={quote} apply={apply} studio={studio}
+                  theme={theme} addOns={addOns} plan={plan} exportDefaults={exportDefaults}
+                  canExport={perms.exportJpg} save={save}
+                />
+              </div>
+            </aside>
+
+            {/* Desktop inspector remains attached to the right of the canvas. */}
+            <aside className="hidden w-96 shrink-0 border-l border-ink-200/70 bg-white p-4 lg:sticky lg:top-[7.5rem] lg:block lg:h-[calc(100vh-7.5rem)] lg:overflow-y-auto">
+              <EditorPanelContent
+                panel={panel} canEdit={canEdit} quote={quote} apply={apply} studio={studio}
+                theme={theme} addOns={addOns} plan={plan} exportDefaults={exportDefaults}
+                canExport={perms.exportJpg} save={save}
               />
-            )}
-          </aside>
+            </aside>
+          </>
         )}
       </div>
 
       <BreakdownDrawer quoteId={quote._id} open={breakdown} onClose={() => setBreakdown(false)} refreshKey={state.savedVersion} />
     </div>
   );
+};
+
+const EditorPanelContent = ({
+  panel,
+  canEdit,
+  quote,
+  apply,
+  studio,
+  theme,
+  addOns,
+  plan,
+  exportDefaults,
+  canExport,
+  save,
+}) => {
+  if (panel === 'fields') {
+    return canEdit ? (
+      <SidePanel quote={quote} apply={apply} studio={studio} theme={theme} addOns={addOns} />
+    ) : (
+      <p className="text-sm text-ink-500">{T.common.noPermission}</p>
+    );
+  }
+
+  if (panel === 'export') {
+    return (
+      <ExportPanel
+        quote={quote}
+        theme={theme}
+        studio={studio}
+        plan={plan}
+        defaults={exportDefaults}
+        canExport={canExport}
+        onSave={() => (canEdit ? save({ status: 'saved' }) : Promise.resolve(quote))}
+      />
+    );
+  }
+
+  return null;
 };
 
 export default QuoteEditor;
