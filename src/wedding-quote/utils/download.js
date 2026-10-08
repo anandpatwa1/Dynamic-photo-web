@@ -10,6 +10,31 @@ export const downloadBlob = (blob, filename) => {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 };
 
+/**
+ * Opens the device share sheet with a real file attachment. On iOS this keeps
+ * the quotation out of Downloads and lets the user send it through WhatsApp.
+ * Returns false when the browser only supports text sharing (or no sharing).
+ */
+export const shareBlob = (blob, filename, { title, text } = {}) => {
+  if (typeof navigator === 'undefined' || typeof navigator.share !== 'function' || typeof File !== 'function') {
+    return false;
+  }
+
+  const file = new File([blob], filename, {
+    type: blob.type || 'image/jpeg',
+    lastModified: Date.now(),
+  });
+  const data = { files: [file], title, text };
+
+  try {
+    if (typeof navigator.canShare === 'function' && !navigator.canShare({ files: data.files })) return false;
+  } catch {
+    return false;
+  }
+
+  return navigator.share(data);
+};
+
 const slug = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
 
 /** quote-<label|package>-<yyyy-mm-dd>.jpg (A12 / Phase 5.3). */

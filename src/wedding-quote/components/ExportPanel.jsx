@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Save } from 'lucide-react';
+import { Download, MessageCircle, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button, Input } from '@/components/ui';
 import { QuoteCanvas } from './QuoteCanvas';
 import { DESIGN_WIDTH, exportSize, formatBytes } from '../utils/engine/layout';
 import { encodeJpeg, rasterize } from '../utils/exportJpg';
-import { downloadBlob, quoteFileName } from '../utils/download';
+import { downloadBlob, quoteFileName, shareBlob } from '../utils/download';
 import { wqSettingsApi } from '../api/wqApi';
 import { T } from '../constants/strings';
 
@@ -21,9 +21,10 @@ export const ExportPanel = ({ quote, theme, studio, plan, defaults, canExport, o
   const [quality, setQuality] = useState(defaults?.quality ?? 0.9);
   const [widthPx, setWidthPx] = useState(defaults?.widthPx ?? 1600);
   const [estimate, setEstimate] = useState({ bytes: null, busy: false, error: null });
-  const [working, setWorking] = useState(false);
+  const [working, setWorking] = useState(null);
   const nodeRef = useRef(null);
   const rasterCache = useRef({ key: null, canvas: null });
+  const jpegCache = useRef({ key: null, blob: null });
 
   useEffect(() => {
     if (defaults) { setQuality(defaults.quality ?? 0.9); setWidthPx(defaults.widthPx ?? 1600); }
@@ -31,6 +32,7 @@ export const ExportPanel = ({ quote, theme, studio, plan, defaults, canExport, o
 
   const size = useMemo(() => exportSize({ designWidth: DESIGN_WIDTH, designHeight: plan?.height ?? DESIGN_WIDTH, widthPx }), [plan, widthPx]);
   const contentKey = useMemo(() => JSON.stringify([quote, theme?._id, plan, size.width, size.height]), [quote, theme, plan, size]);
+  const jpegKey = `${contentKey}:${quality}`;
 
   const getCanvas = async () => {
     if (rasterCache.current.key === contentKey && rasterCache.current.canvas) return rasterCache.current.canvas;
@@ -39,23 +41,34 @@ export const ExportPanel = ({ quote, theme, studio, plan, defaults, canExport, o
     return canvas;
   };
 
+  const getJpeg = async () => {
+    if (jpegCache.current.key === jpegKey && jpegCache.current.blob) return jpegCache.current.blob;
+    const blob = await encodeJpeg(await getCanvas(), quality);
+    jpegCache.current = { key: jpegKey, blob };
+    return blob;
+  };
+
   // Live estimate (debounced): re-rasterise only when content/size change, re-encode on quality.
   useEffect(() => {
     if (!plan || !nodeRef.current || !canExport) return undefined;
     setEstimate((e) => ({ ...e, busy: true }));
+    let cancelled = false;
     const t = setTimeout(async () => {
       try {
-        const blob = await encodeJpeg(await getCanvas(), quality);
-        setEstimate({ bytes: blob.size, busy: false, error: null });
+        const blob = await getJpeg();
+        if (!cancelled) setEstimate({ bytes: blob.size, busy: false, error: null });
       } catch {
-        setEstimate({ bytes: null, busy: false, error: X.failed });
+        if (!cancelled) setEstimate({ bytes: null, busy: false, error: X.failed });
       }
     }, 700);
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [contentKey, quality, canExport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const download = async ({ save }) => {
-    setWorking(true);
+    setWorking(save ? 'save' : 'download');
     try {
       let current = quote;
       if (save) {
@@ -63,15 +76,46 @@ export const ExportPanel = ({ quote, theme, studio, plan, defaults, canExport, o
         if (!saved) return;
         current = saved;
       }
-      const blob = await encodeJpeg(await getCanvas(), quality);
+      const blob = await getJpeg();
       downloadBlob(blob, quoteFileName(current));
       wqSettingsApi.saveLastUsedExport({ quality, widthPx, scale: size.scale }).catch(() => {});
     } catch {
       toast.error(X.failed);
     } finally {
-      setWorking(false);
+      setWorking(null);
     }
   };
+
+  const share = async () => {
+    // The file is prepared by the live size estimate. Calling navigator.share
+    // before any await keeps Safari's required user gesture active.
+    const prepared = jpegCache.current.key === jpegKey ? jpegCache.current.blob : null;
+    if (!prepared) return;
+
+    const filename = quoteFileName(quote);
+    const title = `${quote?.packageSnapshot?.name || 'Wedding'} quotation`;
+    setWorking('share');
+    try {
+      const result = shareBlob(prepared, filename, { title, text: title });
+      if (result === false) {
+        downloadBlob(prepared, filename);
+        toast(X.shareFallback);
+      } else {
+        await result;
+      }
+      wqSettingsApi.saveLastUsedExport({ quality, widthPx, scale: size.scale }).catch(() => {});
+    } catch (error) {
+      // Closing the iOS share sheet is a normal cancellation, not an error.
+      if (error?.name !== 'AbortError') {
+        downloadBlob(prepared, filename);
+        toast.error(X.shareFailed);
+      }
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const shareReady = !estimate.busy && !estimate.error && estimate.bytes !== null && jpegCache.current.key === jpegKey;
 
   if (!canExport) return null;
 
@@ -90,8 +134,18 @@ export const ExportPanel = ({ quote, theme, studio, plan, defaults, canExport, o
       {size.capped && <p className="rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700">{X.capped}</p>}
       {estimate.error && <p className="rounded-lg bg-danger-50 px-3 py-2 text-xs text-danger-700">{estimate.error}</p>}
       <div className="grid gap-2">
-        <Button icon={Save} loading={working} onClick={() => download({ save: true })}>{X.saveDownload}</Button>
-        <Button variant="secondary" icon={Download} disabled={working} onClick={() => download({ save: false })}>{X.downloadOnly}</Button>
+        <Button
+          icon={MessageCircle}
+          loading={working === 'share'}
+          disabled={Boolean(working) || !shareReady}
+          className="bg-[#25D366] hover:bg-[#20bd5a] active:bg-[#1da851] disabled:bg-[#8bdfaa]"
+          onClick={share}
+        >
+          {shareReady ? X.shareWhatsApp : X.preparingShare}
+        </Button>
+        <p className="text-center text-xs text-ink-500">{X.shareHint}</p>
+        <Button icon={Save} loading={working === 'save'} disabled={Boolean(working)} onClick={() => download({ save: true })}>{X.saveDownload}</Button>
+        <Button variant="secondary" icon={Download} loading={working === 'download'} disabled={Boolean(working)} onClick={() => download({ save: false })}>{X.downloadOnly}</Button>
       </div>
       {plan &&
         createPortal(

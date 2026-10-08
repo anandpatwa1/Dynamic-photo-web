@@ -89,6 +89,8 @@ export const STRINGS = {
     export: {
       title: 'Export JPG', quality: 'Quality', width: 'Width', estimated: 'Estimated size', dimensions: 'Dimensions', capped: 'Longest side capped at 4096 px for mobile safety.',
       saveDownload: 'Save & Download', downloadOnly: 'Download only', failed: 'This browser could not create the image (canvas too large or unsupported). Try a smaller width or another browser.', measuring: 'Measuring…',
+      shareWhatsApp: 'Share on WhatsApp', preparingShare: 'Preparing JPG…', shareHint: 'On iPhone, choose WhatsApp from the share sheet.',
+      shareFallback: 'File sharing is not supported in this browser, so the JPG was downloaded instead.', shareFailed: 'Sharing could not open, so the JPG was downloaded instead.',
     },
     themes: {
       title: 'Theme Library', description: 'Data-driven poster designs. Import new ones from a .zip or theme.json.',

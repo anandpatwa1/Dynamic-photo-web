@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  ArrowUpRight, BriefcaseBusiness, ExternalLink, Facebook, Globe2, Instagram,
-  Linkedin, Mail, MapPin, MessageCircle, Phone, Share2, Twitter, Youtube,
+  ArrowUpRight, BriefcaseBusiness, ChevronLeft, ChevronRight, ExternalLink, Facebook,
+  Globe2, Images, Instagram, Linkedin, Mail, MapPin, MessageCircle, Phone, Share2,
+  Twitter, X, Youtube,
 } from 'lucide-react';
 
 const socialIcons = { instagram: Instagram, facebook: Facebook, youtube: Youtube, linkedin: Linkedin, twitter: Twitter, x: Twitter, website: Globe2, whatsapp: MessageCircle };
@@ -20,16 +22,20 @@ export const PublicProfilePage = ({ profile }) => {
     else await navigator.clipboard.writeText(window.location.href);
   };
 
+  const covers = profile.coverPhotos?.length
+    ? [...profile.coverPhotos].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    : profile.coverPhoto ? [profile.coverPhoto] : [];
+  const gallery = [...(profile.gallery ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#eeeae2] text-[#181714]" style={{ '--profile-accent': profile.accentColor || '#b8863b' }}>
       <main className="mx-auto min-h-screen w-full min-w-0 max-w-[1180px] overflow-x-hidden bg-[#fbfaf7] shadow-2xl shadow-stone-900/10 lg:my-8 lg:min-h-[calc(100vh-4rem)] lg:rounded-[2rem]">
-        <section className="relative aspect-[16/10] min-h-[220px] max-h-[400px] w-full overflow-hidden bg-[#25231f] sm:aspect-[16/8]">
-          {profile.coverPhoto?.url ? <img src={profile.coverPhoto.url} alt="" className="block h-full w-full min-w-full max-w-none object-cover" /> : <div className="h-full w-full bg-[radial-gradient(circle_at_20%_20%,var(--profile-accent),transparent_38%),linear-gradient(135deg,#171613,#39352f)]" />}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/20" />
+        <section className="relative aspect-[2/1] w-full overflow-hidden bg-[#25231f]">
+          <CoverCarousel covers={covers} name={profile.name} />
           <button type="button" onClick={share} aria-label="Share profile" className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/25 text-white backdrop-blur-md transition hover:bg-white hover:text-black sm:right-7 sm:top-7"><Share2 className="h-4.5 w-4.5" /></button>
         </section>
 
-        <div className="relative min-w-0 px-4 pb-36 sm:px-8 md:pb-16 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14 lg:px-14">
+        <div className={`relative min-w-0 px-4 sm:px-8 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14 lg:px-14 ${gallery.length ? 'pb-10 md:pb-12' : 'pb-36 md:pb-16'}`}>
           <aside className="relative min-w-0 -mt-16 sm:-mt-20 lg:-mt-24">
             <div className="h-32 w-32 overflow-hidden rounded-[1.75rem] border-4 border-[#fbfaf7] bg-stone-200 shadow-xl sm:h-40 sm:w-40 lg:h-48 lg:w-48">
               {profile.profilePhoto?.url ? <img src={profile.profilePhoto.url} alt={profile.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-5xl font-semibold text-stone-500">{profile.name?.charAt(0)}</div>}
@@ -72,6 +78,8 @@ export const PublicProfilePage = ({ profile }) => {
           </div>
         </div>
 
+        {gallery.length > 0 && <ProfileGallery images={gallery} name={profile.name} />}
+
         <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[1180px] gap-2 border-t border-stone-200 bg-[#fbfaf7]/95 p-3 pb-[calc(.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl md:hidden">
           {profile.phone && <a href={phoneHref(profile.phone)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#201f1c] text-sm font-semibold text-white"><Phone className="h-4 w-4" /> Call</a>}
           {profile.whatsapp && <a href={whatsappHref(profile.whatsapp)} target="_blank" rel="noreferrer" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#25D366] text-sm font-semibold text-white"><MessageCircle className="h-4 w-4" /> WhatsApp</a>}
@@ -79,6 +87,98 @@ export const PublicProfilePage = ({ profile }) => {
       </main>
     </div>
   );
+};
+
+const CoverCarousel = ({ covers, name }) => {
+  const trackRef = useRef(null);
+  const [active, setActive] = useState(0);
+
+  useEffect(() => setActive(0), [covers.length]);
+
+  if (!covers.length) {
+    return <div className="h-full w-full bg-[radial-gradient(circle_at_20%_20%,var(--profile-accent),transparent_38%),linear-gradient(135deg,#171613,#39352f)]" />;
+  }
+
+  const go = (nextIndex) => {
+    const index = (nextIndex + covers.length) % covers.length;
+    const track = trackRef.current;
+    track?.scrollTo({ left: track.clientWidth * index, behavior: 'smooth' });
+    setActive(index);
+  };
+
+  return <>
+    <div
+      ref={trackRef}
+      className="flex h-full w-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      onScroll={(event) => {
+        const width = event.currentTarget.clientWidth;
+        if (width) setActive(Math.round(event.currentTarget.scrollLeft / width));
+      }}
+    >
+      {covers.map((cover, index) => <div key={cover.publicId || cover.url} className="h-full min-w-full snap-center">
+        <img src={cover.url} alt={cover.alt || `${name} cover ${index + 1}`} className="h-full w-full object-cover" loading={index === 0 ? 'eager' : 'lazy'} fetchPriority={index === 0 ? 'high' : 'auto'} />
+      </div>)}
+    </div>
+    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/20" />
+    {covers.length > 1 && <>
+      <button type="button" onClick={() => go(active - 1)} aria-label="Previous cover" className="absolute left-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/30 text-white backdrop-blur transition hover:bg-white hover:text-black sm:grid"><ChevronLeft className="h-5 w-5" /></button>
+      <button type="button" onClick={() => go(active + 1)} aria-label="Next cover" className="absolute right-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/30 text-white backdrop-blur transition hover:bg-white hover:text-black sm:grid"><ChevronRight className="h-5 w-5" /></button>
+      <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-black/25 px-2.5 py-2 backdrop-blur">
+        {covers.map((cover, index) => <button key={cover.publicId || cover.url} type="button" onClick={() => go(index)} aria-label={`Show cover ${index + 1}`} aria-current={active === index} className={`h-1.5 rounded-full transition-all ${active === index ? 'w-5 bg-white' : 'w-1.5 bg-white/55'}`} />)}
+      </div>
+    </>}
+  </>;
+};
+
+const ProfileGallery = ({ images, name }) => {
+  const [openIndex, setOpenIndex] = useState(null);
+
+  return <section className="border-t border-stone-200 px-4 pb-36 pt-10 sm:px-8 md:pb-16 lg:px-14 lg:pt-12">
+    <div className="mb-6 flex items-end justify-between gap-4">
+      <div><p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.2em] text-stone-400"><Images className="h-4 w-4" /> Gallery</p><h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Selected moments</h2></div>
+      <p className="shrink-0 text-xs text-stone-400">{images.length} photos</p>
+    </div>
+    <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-3">
+      {images.map((image, index) => {
+        const wide = index % 7 === 0;
+        return <button key={image.publicId || image.url} type="button" onClick={() => setOpenIndex(index)} className={`group relative overflow-hidden rounded-2xl bg-stone-100 text-left ${wide ? 'col-span-2 aspect-[16/9]' : 'aspect-[4/5]'}`}>
+          <img src={image.url} alt={image.alt || `${name} gallery photo ${index + 1}`} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+          <span className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
+        </button>;
+      })}
+    </div>
+    <GalleryViewer images={images} index={openIndex} name={name} onChange={setOpenIndex} onClose={() => setOpenIndex(null)} />
+  </section>;
+};
+
+const GalleryViewer = ({ images, index, name, onChange, onClose }) => {
+  useEffect(() => {
+    if (index === null) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const keyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+      if (event.key === 'ArrowLeft') onChange((index - 1 + images.length) % images.length);
+      if (event.key === 'ArrowRight') onChange((index + 1) % images.length);
+    };
+    window.addEventListener('keydown', keyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', keyDown);
+    };
+  }, [index, images.length, onChange, onClose]);
+
+  if (index === null) return null;
+  const image = images[index];
+  return createPortal(<div role="dialog" aria-modal="true" aria-label="Gallery photo viewer" className="fixed inset-0 z-50 grid bg-black/95 p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:p-6">
+    <button type="button" onClick={onClose} aria-label="Close gallery" className="absolute right-3 top-3 z-10 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white hover:text-black sm:right-6 sm:top-6"><X className="h-5 w-5" /></button>
+    <img src={image.url} alt={image.alt || `${name} gallery photo ${index + 1}`} className="m-auto max-h-[calc(100dvh-5rem)] max-w-full object-contain" />
+    {images.length > 1 && <>
+      <button type="button" onClick={() => onChange((index - 1 + images.length) % images.length)} aria-label="Previous photo" className="absolute bottom-4 left-4 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white hover:text-black sm:bottom-auto sm:left-6 sm:top-1/2 sm:-translate-y-1/2"><ChevronLeft className="h-6 w-6" /></button>
+      <button type="button" onClick={() => onChange((index + 1) % images.length)} aria-label="Next photo" className="absolute bottom-4 right-4 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white hover:text-black sm:bottom-auto sm:right-6 sm:top-1/2 sm:-translate-y-1/2"><ChevronRight className="h-6 w-6" /></button>
+    </>}
+    <p className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur">{index + 1} / {images.length}</p>
+  </div>, document.body);
 };
 
 const Contact = ({ href, icon: Icon, label, value, external }) => {
