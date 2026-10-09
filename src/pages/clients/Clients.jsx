@@ -44,7 +44,7 @@ import {
 } from '@/redux/client/clientSlice';
 import { useListQuery } from '@/hooks/useListQuery';
 import { useAuth } from '@/hooks/useAuth';
-import { CLIENT_STATUS_META, statusOptions } from '@/constants';
+import { CLIENT_STATUS_META, PERMISSIONS, statusOptions } from '@/constants';
 import { CLIENT_SOURCE_OPTIONS } from '@/validations/client.schema';
 import { formatDate, humanize, truncate } from '@/utils/format';
 import { ClientFormModal } from './ClientFormModal';
@@ -58,7 +58,10 @@ export const Clients = () => {
   const loading = useSelector(selectClientsLoading);
   const stats = useSelector(selectClientStats);
   const saving = useSelector(selectClientSaving);
-  const { canManage } = useAuth();
+  const { can } = useAuth();
+  const canCreate = can(PERMISSIONS.CLIENTS_CREATE);
+  const canEdit = can(PERMISSIONS.CLIENTS_EDIT);
+  const canDelete = can(PERMISSIONS.CLIENTS_DELETE);
 
   const { params, query, sort, setPage, setLimit, setSearch, setSort, setFilter } = useListQuery({
     sortBy: 'createdAt',
@@ -180,7 +183,7 @@ export const Clients = () => {
       numeric: true,
       render: (client) => <span className="text-ink-500">{formatDate(client.createdAt)}</span>,
     },
-    ...(canManage
+    ...(canEdit || canDelete
       ? [
           {
             key: 'actions',
@@ -203,21 +206,17 @@ export const Clients = () => {
                   />
                 )}
               >
-                <DropdownItem icon={Pencil} onClick={() => openEdit(client)}>
-                  Edit details
-                </DropdownItem>
+                {canEdit && <DropdownItem icon={Pencil} onClick={() => openEdit(client)}>Edit details</DropdownItem>}
                 <DropdownItem as={Link} to={`/CRM/clients/${client._id}`} icon={Building2}>
                   View profile
                 </DropdownItem>
-                <DropdownDivider />
-                {client.status !== 'archived' && (
+                {canEdit && <DropdownDivider />}
+                {canEdit && client.status !== 'archived' && (
                   <DropdownItem icon={Archive} onClick={() => handleArchive(client)}>
                     Archive
                   </DropdownItem>
                 )}
-                <DropdownItem icon={Trash2} danger onClick={() => setConfirming(client)}>
-                  Delete
-                </DropdownItem>
+                {canDelete && <DropdownItem icon={Trash2} danger onClick={() => setConfirming(client)}>Delete</DropdownItem>}
               </Dropdown>
             ),
           },
@@ -233,7 +232,7 @@ export const Clients = () => {
         title="Clients"
         description="Every brand, business and couple you work with."
         actions={
-          canManage && (
+          canCreate && (
             <Button icon={Plus} onClick={openCreate}>
               New client
             </Button>
@@ -310,9 +309,9 @@ export const Clients = () => {
               icon={Users}
               title="No clients yet"
               description="Add your first client to start sending quotations and invoices."
-              actionLabel={canManage ? 'Add your first client' : undefined}
+              actionLabel={canCreate ? 'Add your first client' : undefined}
               actionIcon={Plus}
-              onAction={canManage ? openCreate : undefined}
+              onAction={canCreate ? openCreate : undefined}
             />
           )
         }

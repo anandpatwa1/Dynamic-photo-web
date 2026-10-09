@@ -6,12 +6,14 @@ export const WQ_ACTIONS = [
   'viewQuotes', 'createQuote', 'editQuote', 'deleteQuote', 'manageMasters',
   'manageThemes', 'viewCosting', 'exportJpg', 'managePermissions',
 ];
-export const WQ_ROLES = ['admin', 'manager', 'staff'];
+export const WQ_ROLES = ['super_admin', 'admin', 'sub_admin', 'manager', 'staff'];
 
 const all = (value) => Object.fromEntries(WQ_ACTIONS.map((a) => [a, value]));
 
 export const DEFAULT_PERMISSIONS = {
+  super_admin: all(true),
   admin: all(true),
+  sub_admin: { ...all(true), managePermissions: false },
   manager: { ...all(true), managePermissions: false },
   staff: { ...all(false), viewQuotes: true, createQuote: true, exportJpg: true },
 };
@@ -26,6 +28,7 @@ export const normalizeMatrix = (matrix = {}) => {
       out[role][action] = typeof source[action] === 'boolean' ? source[action] : DEFAULT_PERMISSIONS[role][action];
     }
   }
+  out.super_admin.managePermissions = true;
   out.admin.managePermissions = true;
   return out;
 };

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Calculator, Download, Maximize2, PanelRight, PieChart, Redo2, RotateCcw, Undo2, X, ZoomIn, ZoomOut,
 } from 'lucide-react';
@@ -33,6 +33,7 @@ export const QuoteEditor = () => (
 
 const EditorInner = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const reduxDispatch = useDispatch();
   const perms = useWqPermissions();
   const { themes, themesLoaded, studio } = useSelector((s) => s.wqMeta);
@@ -203,6 +204,10 @@ const EditorInner = () => {
         {canEdit && <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => apply(ops.resetQuoteToAuto)}>{E.resetQuote}</Button>}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
         <span className={cn('text-xs', dirty ? 'text-warning-700' : 'text-ink-400')} aria-live="polite">{saving ? T.common.saving : dirty ? T.common.unsaved : T.common.saved}</span>
+        {canEdit && <Button size="sm" variant="secondary" icon={ArrowLeft} onClick={async () => {
+          if (dirty && !await save()) return;
+          navigate(CRM.wqQuoteSetup(quote._id));
+        }}>{E.editSetup}</Button>}
         <Button size="sm" variant="secondary" icon={PieChart} onClick={async () => { if (dirty) await save(); setBreakdown(true); }}>{E.breakdown}</Button>
         {canEdit && (
           <Button size="sm" variant="ghost" iconOnly icon={Calculator} aria-label={E.recalc}

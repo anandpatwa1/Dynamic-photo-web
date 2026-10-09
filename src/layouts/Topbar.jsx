@@ -1,6 +1,15 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { ChevronDown, LogOut, Menu, Settings, Sparkles, User as UserIcon } from 'lucide-react';
+import {
+  Building2,
+  ChevronDown,
+  LogOut,
+  Menu,
+  Settings,
+  Sparkles,
+  User as UserIcon,
+  X,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { Avatar, Badge, Button, Dropdown, DropdownDivider, DropdownItem } from '@/components/ui';
@@ -9,16 +18,25 @@ import { humanize } from '@/utils/format';
 import { CRM } from '@/routes/paths';
 import { useWqPermissions } from '@/wedding-quote/hooks/useWqPermissions';
 import { T as WQ } from '@/wedding-quote/constants/strings';
+import { tokenStore } from '@/api/axios';
+import { BUSINESS_FEATURES } from '@/constants';
+import { useAuth } from '@/hooks/useAuth';
 
-export const Topbar = ({ user, onOpenNav }) => {
+export const Topbar = ({ user, business, isPlatformAdmin, onOpenNav }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const wqPerms = useWqPermissions();
+  const { hasFeature } = useAuth();
 
   const handleLogout = async () => {
     await dispatch(logout());
     toast.success('Signed out');
     navigate('/CRM/login', { replace: true });
+  };
+
+  const exitSupportWorkspace = () => {
+    tokenStore.clearBusinessContext();
+    window.location.assign(CRM.businesses);
   };
 
   return (
@@ -33,10 +51,29 @@ export const Topbar = ({ user, onOpenNav }) => {
         className="lg:hidden"
       />
 
+      {isPlatformAdmin && business && (
+        <div className="flex min-w-0 items-center gap-2 rounded-xl bg-info-50 px-2.5 py-1.5 text-info-700 ring-1 ring-inset ring-info-100 sm:px-3">
+          <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="hidden min-w-0 text-xs font-medium min-[480px]:block sm:text-sm">
+            <span className="hidden md:inline">Supporting </span>
+            <span className="block max-w-24 truncate sm:max-w-48 md:inline">{business.name}</span>
+          </span>
+          <button
+            type="button"
+            onClick={exitSupportWorkspace}
+            className="rounded-md p-0.5 transition-colors hover:bg-info-100"
+            aria-label={`Exit ${business.name} support workspace`}
+            title="Exit support workspace"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
       <div className="flex-1" />
 
       {/* Wedding Quote: always visible (icon-only on small screens) for users who can create. */}
-      {wqPerms.createQuote && (
+      {hasFeature(BUSINESS_FEATURES.WEDDING_QUOTES) && wqPerms.createQuote && (
         <>
           <Button as={Link} to={CRM.wqCreate} size="sm" icon={Sparkles} className="hidden sm:inline-flex">
             {WQ.nav.create}

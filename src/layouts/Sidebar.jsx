@@ -11,6 +11,7 @@ import {
   ListChecks,
   Palette,
   CalendarRange,
+  CalendarDays,
   Gift,
   Layers,
   SlidersHorizontal,
@@ -26,6 +27,10 @@ import {
   Sliders,
   Users,
   ContactRound,
+  ReceiptText,
+  ShieldCheck,
+  History,
+  Building2,
   X,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -34,62 +39,77 @@ import { Button } from '@/components/ui';
 import { CRM } from '@/routes/paths';
 import { useWqPermissions } from '@/wedding-quote/hooks/useWqPermissions';
 import { T as WQ } from '@/wedding-quote/constants/strings';
+import { BUSINESS_FEATURES, PERMISSIONS } from '@/constants';
+import { useAuth } from '@/hooks/useAuth';
 
-/** `adminOnly` items are filtered out for non-admin roles. */
+/** Navigation is filtered from the signed-in user's live permissions. */
 export const NAV_SECTIONS = [
   {
+    label: 'Platform',
+    items: [
+      { to: CRM.businesses, label: 'Businesses', icon: Building2, platformOnly: true },
+    ],
+  },
+  {
     label: 'Overview',
-    items: [{ to: CRM.dashboard, label: 'Dashboard', icon: LayoutDashboard }],
+    items: [{ to: CRM.dashboard, label: 'Dashboard', icon: LayoutDashboard, permission: PERMISSIONS.DASHBOARD_VIEW }],
   },
   {
     label: 'Studio',
     items: [
-      { to: CRM.clients, label: 'Clients', icon: Users },
-      { to: CRM.packages, label: 'Packages', icon: Package },
-      { to: CRM.projects, label: 'Projects', icon: FolderKanban },
+      { to: CRM.clients, label: 'Clients', icon: Users, permission: PERMISSIONS.CLIENTS_VIEW, feature: BUSINESS_FEATURES.CRM_CLIENTS },
+      { to: CRM.packages, label: 'Packages', icon: Package, permission: PERMISSIONS.PACKAGES_VIEW, feature: BUSINESS_FEATURES.CRM_PACKAGES },
+      { to: CRM.projects, label: 'Projects', icon: FolderKanban, permission: PERMISSIONS.PROJECTS_VIEW, feature: BUSINESS_FEATURES.PROJECTS },
     ],
   },
   {
     label: 'Finance',
     items: [
-      { to: CRM.documents, label: 'Documents', icon: FileText },
-      { to: CRM.payments, label: 'Payments', icon: CreditCard },
-      { to: CRM.reports, label: 'Reports', icon: BarChart3 },
+      { to: CRM.quotations, label: 'Quotations', icon: MessageSquareQuote, permission: PERMISSIONS.DOCUMENTS_VIEW, feature: BUSINESS_FEATURES.DOCUMENTS },
+      { to: CRM.estimates, label: 'Estimates', icon: FileText, permission: PERMISSIONS.DOCUMENTS_VIEW, feature: BUSINESS_FEATURES.DOCUMENTS },
+      { to: CRM.bills, label: 'Bills / Invoices', icon: ReceiptText, permission: PERMISSIONS.DOCUMENTS_VIEW, feature: BUSINESS_FEATURES.DOCUMENTS },
+      { to: CRM.payments, label: 'Payments', icon: CreditCard, permission: PERMISSIONS.PAYMENTS_VIEW, feature: BUSINESS_FEATURES.PAYMENTS },
+      { to: CRM.reports, label: 'Reports', icon: BarChart3, permission: PERMISSIONS.REPORTS_VIEW, feature: BUSINESS_FEATURES.REPORTS },
     ],
   },
   {
     // Wedding Quote module: each item is gated by its module permission (A13).
     label: WQ.module,
     items: [
-      { to: CRM.wqCreate, label: WQ.nav.create, icon: Sparkles, wqPerm: ['createQuote'] },
-      { to: CRM.wqQuotes, label: WQ.nav.all, icon: Heart, wqPerm: ['viewQuotes'] },
-      { to: CRM.wqItems, label: `${WQ.nav.mastersGroup} · ${WQ.nav.items}`, icon: ListChecks, wqPerm: ['manageMasters'] },
-      { to: CRM.wqSets, label: `${WQ.nav.mastersGroup} · ${WQ.nav.sets}`, icon: Layers, wqPerm: ['manageMasters'] },
-      { to: CRM.wqAddOns, label: `${WQ.nav.mastersGroup} · ${WQ.nav.addOns}`, icon: Gift, wqPerm: ['manageMasters'] },
-      { to: CRM.wqPresets, label: `${WQ.nav.mastersGroup} · ${WQ.nav.presets}`, icon: Gem, wqPerm: ['manageMasters'] },
-      { to: CRM.wqThemes, label: `${WQ.nav.themesGroup} · ${WQ.nav.themes}`, icon: Palette, wqPerm: ['manageThemes'] },
-      { to: CRM.wqThemeAssignment, label: `${WQ.nav.themesGroup} · ${WQ.nav.dayAssignment}`, icon: CalendarRange, wqPerm: ['manageThemes'] },
-      { to: CRM.wqSettings, label: WQ.nav.settings, icon: SlidersHorizontal, wqPerm: ['manageMasters', 'managePermissions'] },
+      { to: CRM.wqCreate, label: WQ.nav.create, icon: Sparkles, wqPerm: ['createQuote'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
+      { to: CRM.wqQuotes, label: WQ.nav.all, icon: Heart, wqPerm: ['viewQuotes'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
+      { to: CRM.wqBookings, label: WQ.nav.bookings, icon: CalendarDays, wqPerm: ['viewQuotes', 'createQuote', 'editQuote', 'manageMasters'], feature: BUSINESS_FEATURES.BOOKING_CALENDAR },
+      { to: CRM.wqItems, label: `${WQ.nav.mastersGroup} · ${WQ.nav.items}`, icon: ListChecks, wqPerm: ['manageMasters'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
+      { to: CRM.wqSets, label: `${WQ.nav.mastersGroup} · ${WQ.nav.sets}`, icon: Layers, wqPerm: ['manageMasters'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
+      { to: CRM.wqAddOns, label: `${WQ.nav.mastersGroup} · ${WQ.nav.addOns}`, icon: Gift, wqPerm: ['manageMasters'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
+      { to: CRM.wqPresets, label: `${WQ.nav.mastersGroup} · ${WQ.nav.presets}`, icon: Gem, wqPerm: ['manageMasters'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
+      { to: CRM.wqThemes, label: `${WQ.nav.themesGroup} · ${WQ.nav.themes}`, icon: Palette, wqPerm: ['manageThemes'], feature: BUSINESS_FEATURES.THEME_LIBRARY },
+      { to: CRM.wqThemeAssignment, label: `${WQ.nav.themesGroup} · ${WQ.nav.dayAssignment}`, icon: CalendarRange, wqPerm: ['manageThemes'], feature: BUSINESS_FEATURES.THEME_LIBRARY },
+      { to: CRM.wqSettings, label: WQ.nav.settings, icon: SlidersHorizontal, wqPerm: ['manageMasters', 'managePermissions'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
     ],
   },
   {
     label: 'Website',
     items: [
-      { to: CRM.websiteProfiles, label: 'Public Profiles', icon: ContactRound, adminOnly: true },
-      { to: CRM.websiteHomepage, label: 'Homepage', icon: Globe, adminOnly: true },
-      { to: CRM.websitePortfolio, label: 'Portfolio', icon: Image, adminOnly: true },
-      { to: CRM.websiteSections, label: 'Sections & Videos', icon: Clapperboard, adminOnly: true },
-      { to: CRM.websitePackages, label: 'Packages', icon: Package, adminOnly: true },
-      { to: CRM.websiteTestimonials, label: 'Testimonials', icon: MessageSquareQuote, adminOnly: true },
-      { to: CRM.websiteInquiries, label: 'Inquiries', icon: Inbox, adminOnly: true },
-      { to: CRM.websiteContact, label: 'Contact', icon: Phone, adminOnly: true },
-      { to: CRM.websiteSeo, label: 'SEO', icon: Search, adminOnly: true },
-      { to: CRM.websiteSettings, label: 'Website Settings', icon: Sliders, adminOnly: true },
+      { to: CRM.websiteProfiles, label: 'Public Profiles', icon: ContactRound, permission: PERMISSIONS.WEBSITE_MANAGE, feature: BUSINESS_FEATURES.PUBLIC_PROFILES },
+      { to: CRM.websiteHomepage, label: 'Homepage', icon: Globe, permission: PERMISSIONS.WEBSITE_MANAGE },
+      { to: CRM.websitePortfolio, label: 'Portfolio', icon: Image, permission: PERMISSIONS.WEBSITE_MANAGE, feature: BUSINESS_FEATURES.PORTFOLIO },
+      { to: CRM.websiteSections, label: 'Sections & Videos', icon: Clapperboard, permission: PERMISSIONS.WEBSITE_MANAGE, feature: BUSINESS_FEATURES.PORTFOLIO },
+      { to: CRM.websitePackages, label: 'Packages', icon: Package, permission: PERMISSIONS.WEBSITE_MANAGE, feature: BUSINESS_FEATURES.WEBSITE_PACKAGES },
+      { to: CRM.websiteTestimonials, label: 'Testimonials', icon: MessageSquareQuote, permission: PERMISSIONS.WEBSITE_MANAGE, feature: BUSINESS_FEATURES.TESTIMONIALS },
+      { to: CRM.websiteInquiries, label: 'Inquiries', icon: Inbox, permission: PERMISSIONS.WEBSITE_MANAGE, feature: BUSINESS_FEATURES.INQUIRIES },
+      { to: CRM.websiteContact, label: 'Contact', icon: Phone, permission: PERMISSIONS.WEBSITE_MANAGE },
+      { to: CRM.websiteSeo, label: 'SEO', icon: Search, permission: PERMISSIONS.WEBSITE_MANAGE },
+      { to: CRM.websiteSettings, label: 'Website Settings', icon: Sliders, permission: PERMISSIONS.WEBSITE_MANAGE },
     ],
   },
   {
     label: 'Workspace',
-    items: [{ to: CRM.settings, label: 'Settings', icon: Settings, adminOnly: true }],
+    items: [
+      { to: CRM.team, label: 'Team & Permissions', icon: ShieldCheck, permission: PERMISSIONS.TEAM_MANAGE },
+      { to: CRM.activity, label: 'Activity Logs', icon: History, permission: PERMISSIONS.ACTIVITY_VIEW },
+      { to: CRM.settings, label: 'Settings', icon: Settings, permission: PERMISSIONS.SETTINGS_MANAGE },
+    ],
   },
 ];
 
@@ -118,12 +138,16 @@ const NavItem = ({ item, onNavigate }) => (
   </NavLink>
 );
 
-export const Sidebar = ({ isAdmin, mobileOpen, onClose }) => {
+export const Sidebar = ({ mobileOpen, onClose }) => {
   const wqPerms = useWqPermissions();
+  const { can, hasFeature, isPlatformAdmin } = useAuth();
   const sections = NAV_SECTIONS.map((section) => ({
     ...section,
     items: section.items.filter(
-      (item) => (!item.adminOnly || isAdmin) && (!item.wqPerm || item.wqPerm.some((p) => wqPerms[p])),
+      (item) => (!item.platformOnly || isPlatformAdmin)
+        && (!item.permission || can(item.permission))
+        && (!item.feature || hasFeature(item.feature))
+        && (!item.wqPerm || item.wqPerm.some((p) => wqPerms[p])),
     ),
   })).filter((section) => section.items.length > 0);
 

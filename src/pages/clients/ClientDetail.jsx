@@ -40,7 +40,7 @@ import {
   clearCurrentClient,
 } from '@/redux/client/clientSlice';
 import { useAuth } from '@/hooks/useAuth';
-import { CLIENT_STATUS_META } from '@/constants';
+import { CLIENT_STATUS_META, PERMISSIONS } from '@/constants';
 import { formatAddress, formatDate, humanize } from '@/utils/format';
 import { ClientFormModal } from './ClientFormModal';
 
@@ -75,7 +75,9 @@ export const ClientDetail = () => {
   const client = useSelector(selectCurrentClient);
   const loading = useSelector(selectClientLoading);
   const saving = useSelector(selectClientSaving);
-  const { canManage } = useAuth();
+  const { can } = useAuth();
+  const canEdit = can(PERMISSIONS.CLIENTS_EDIT);
+  const canDelete = can(PERMISSIONS.CLIENTS_DELETE);
 
   const [editOpen, setEditOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -123,19 +125,15 @@ export const ClientDetail = () => {
         title={client.name}
         description={client.contactPerson ? `Primary contact · ${client.contactPerson}` : undefined}
         actions={
-          canManage && (
+          (canEdit || canDelete) && (
             <>
-              {client.status !== 'archived' && (
+              {canEdit && client.status !== 'archived' && (
                 <Button variant="secondary" icon={Archive} onClick={handleArchive} loading={saving}>
                   Archive
                 </Button>
               )}
-              <Button variant="secondary" icon={Pencil} onClick={() => setEditOpen(true)}>
-                Edit
-              </Button>
-              <Button variant="danger-soft" icon={Trash2} onClick={() => setConfirmOpen(true)}>
-                Delete
-              </Button>
+              {canEdit && <Button variant="secondary" icon={Pencil} onClick={() => setEditOpen(true)}>Edit</Button>}
+              {canDelete && <Button variant="danger-soft" icon={Trash2} onClick={() => setConfirmOpen(true)}>Delete</Button>}
             </>
           )
         }

@@ -46,7 +46,7 @@ import {
 import { documentApi } from '@/api/documentApi';
 import { useListQuery } from '@/hooks/useListQuery';
 import { useAuth } from '@/hooks/useAuth';
-import { DOCUMENT_STATUS_META, DOCUMENT_TYPE_OPTIONS, statusOptions } from '@/constants';
+import { DOCUMENT_STATUS_META, DOCUMENT_TYPE_OPTIONS, PERMISSIONS, statusOptions } from '@/constants';
 import { formatCompactCurrency, formatCurrency, formatDate } from '@/utils/format';
 
 const STATUS_OPTIONS = statusOptions(DOCUMENT_STATUS_META);
@@ -56,7 +56,7 @@ const TYPE_TABS = [
   ...DOCUMENT_TYPE_OPTIONS.map(({ value, label }) => ({ value, label })),
 ];
 
-export const Documents = () => {
+export const Documents = ({ fixedType = '' }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -65,11 +65,16 @@ export const Documents = () => {
   const loading = useSelector(selectDocumentsLoading);
   const stats = useSelector(selectDocumentStats);
   const saving = useSelector(selectDocumentSaving);
-  const { canManage } = useAuth();
+  const { can } = useAuth();
+  const canCreate = can(PERMISSIONS.DOCUMENTS_CREATE);
+  const canEdit = can(PERMISSIONS.DOCUMENTS_EDIT);
+  const canDelete = can(PERMISSIONS.DOCUMENTS_DELETE);
 
   const { params, query, sort, setPage, setLimit, setSearch, setSort, setFilter } = useListQuery({
     sortBy: 'date',
+    type: fixedType || undefined,
   });
+  const typeMeta = DOCUMENT_TYPE_OPTIONS.find((option) => option.value === fixedType);
 
   const [confirming, setConfirming] = useState(null);
 
@@ -205,19 +210,12 @@ export const Documents = () => {
           <DropdownItem icon={Download} onClick={() => handleDownload(doc)}>
             Download PDF
           </DropdownItem>
-          {canManage && (
+          {(canEdit || canCreate || canDelete) && (
             <>
               <DropdownDivider />
-              <DropdownItem as={Link} to={`/CRM/documents/${doc._id}/edit`} icon={Pencil}>
-                Edit
-              </DropdownItem>
-              <DropdownItem icon={Copy} onClick={() => handleDuplicate(doc)}>
-                Duplicate
-              </DropdownItem>
-              <DropdownDivider />
-              <DropdownItem icon={Trash2} danger onClick={() => setConfirming(doc)}>
-                Delete
-              </DropdownItem>
+              {canEdit && <DropdownItem as={Link} to={`/CRM/documents/${doc._id}/edit`} icon={Pencil}>Edit</DropdownItem>}
+              {canCreate && <DropdownItem icon={Copy} onClick={() => handleDuplicate(doc)}>Duplicate</DropdownItem>}
+              {canDelete && <><DropdownDivider /><DropdownItem icon={Trash2} danger onClick={() => setConfirming(doc)}>Delete</DropdownItem></>}
             </>
           )}
         </Dropdown>
@@ -225,15 +223,17 @@ export const Documents = () => {
     },
   ];
 
-  const hasFilters = Boolean(query.search || query.status || query.type || query.overdue);
+  const hasFilters = Boolean(query.search || query.status || (!fixedType && query.type) || query.overdue);
 
   return (
     <>
       <PageHeader
-        title="Documents"
-        description="Quotations, estimates and invoices — one place, one workflow."
+        title={typeMeta ? `${typeMeta.label}${fixedType === 'invoice' ? 's / Bills' : 's'}` : 'Documents'}
+        description={typeMeta?.description ?? 'Quotations, estimates and invoices — independent from Wedding Quote.'}
         actions={
-          canManage && (
+          canCreate && (typeMeta ? (
+            <Button as={Link} to={`/CRM/documents/new?type=${typeMeta.value}`} icon={Plus}>New {typeMeta.label}</Button>
+          ) : (
             <Dropdown
               align="right"
               trigger={({ toggle }) => (
@@ -253,7 +253,7 @@ export const Documents = () => {
                 </DropdownItem>
               ))}
             </Dropdown>
-          )
+          ))
         }
       />
 
@@ -288,12 +288,7 @@ export const Documents = () => {
         />
       </div>
 
-      <Tabs
-        tabs={TYPE_TABS}
-        value={query.type ?? ''}
-        onChange={(value) => setFilter('type', value)}
-        className="mb-5"
-      />
+      {!fixedType && <Tabs tabs={TYPE_TABS} value={query.type ?? ''} onChange={(value) => setFilter('type', value)} className="mb-5" />}
 
       <Toolbar>
         <SearchInput
@@ -337,12 +332,12 @@ export const Documents = () => {
           ) : (
             <EmptyState
               icon={FileText}
-              title="No documents yet"
-              description="Create your first quotation — pick a client, add a package, and the PDF is ready to send."
+              title={`No ${typeMeta?.label.toLowerCase() ?? 'documents'} yet`}
+              description={typeMeta ? `Create your first ${typeMeta.label.toLowerCase()} with the original document builder.` : 'Create a quotation, estimate or bill with the original document builder.'}
               action={
-                canManage && (
-                  <Button as={Link} to="/CRM/documents/new?type=quotation" icon={Plus}>
-                    Create a quotation
+                canCreate && (
+                  <Button as={Link} to={`/CRM/documents/new?type=${fixedType || 'quotation'}`} icon={Plus}>
+                    Create {typeMeta ? `a ${typeMeta.label.toLowerCase()}` : 'a quotation'}
                   </Button>
                 )
               }

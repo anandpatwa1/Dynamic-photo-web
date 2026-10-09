@@ -3,7 +3,12 @@ import { authApi } from '@/api/authApi';
 import { tokenStore } from '@/api/axios';
 import { createThunk } from '../createThunk';
 
-export const login = createThunk('auth/login', (credentials) => authApi.login(credentials));
+export const login = createThunk('auth/login', (credentials) => {
+  // A support workspace belongs to the current platform session. Never carry
+  // it into a newly authenticated account on the same browser.
+  tokenStore.clearBusinessContext();
+  return authApi.login(credentials);
+});
 
 export const registerUser = createThunk('auth/register', (payload) => authApi.register(payload));
 
@@ -30,6 +35,7 @@ export const logout = createAsyncThunk('auth/logout', async () => {
 
 const initialState = {
   user: null,
+  business: null,
   // `initialising` covers the boot-time session check, distinct from the
   // `loading` flag used by interactive submissions.
   initialising: Boolean(tokenStore.getAccess()),
@@ -40,10 +46,12 @@ const initialState = {
 
 const applySession = (state, payload) => {
   state.user = payload.user;
+  state.business = payload.business ?? null;
   state.loading = false;
   state.error = null;
   state.fieldErrors = [];
   tokenStore.set(payload);
+  if (payload.user?.accountScope === 'business') tokenStore.clearBusinessContext();
 };
 
 const applyFailure = (state, action) => {
@@ -63,6 +71,7 @@ const authSlice = createSlice({
     // Dispatched by the axios interceptor when refreshing fails.
     sessionExpired: (state) => {
       state.user = null;
+      state.business = null;
       state.initialising = false;
       tokenStore.clear();
     },
@@ -74,16 +83,20 @@ const authSlice = createSlice({
       })
       .addCase(fetchMe.fulfilled, (state, action) => {
         state.user = action.payload.user;
+        state.business = action.payload.business ?? null;
         state.initialising = false;
+        if (action.payload.user?.accountScope === 'business') tokenStore.clearBusinessContext();
       })
       .addCase(fetchMe.rejected, (state) => {
         state.user = null;
+        state.business = null;
         state.initialising = false;
         tokenStore.clear();
       })
 
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
+        state.business = null;
         state.error = null;
         state.fieldErrors = [];
       })
@@ -122,6 +135,7 @@ const authSlice = createSlice({
 export const { clearAuthError, sessionExpired } = authSlice.actions;
 
 export const selectUser = (state) => state.auth.user;
+export const selectBusiness = (state) => state.auth.business;
 export const selectIsAuthenticated = (state) => Boolean(state.auth.user);
 export const selectAuthLoading = (state) => state.auth.loading;
 export const selectAuthInitialising = (state) => state.auth.initialising;

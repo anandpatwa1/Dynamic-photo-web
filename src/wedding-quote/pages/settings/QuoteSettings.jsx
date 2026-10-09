@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Button, Card, CardBody, Input, PageHeader, Select, Skeleton, Tabs } from '@/components/ui';
+import { Button, Card, CardBody, Input, PageHeader, Select, Skeleton, Switch, Tabs } from '@/components/ui';
 import { PermissionGate } from '../../components/PermissionGate';
 import { useWqPermissions } from '../../hooks/useWqPermissions';
 import { wqMasters, wqSettingsApi } from '../../api/wqApi';
 import { WQ_ACTIONS, WQ_ROLES } from '../../utils/engine/permissions';
 import { T } from '../../constants/strings';
 import { CRM } from '@/routes/paths';
+import { humanize } from '@/utils/format';
 
 const S = T.settings;
 
@@ -58,7 +59,14 @@ const SettingsInner = () => {
               <Select label={S.defaultSet} value={settings.defaultDeliverableSetId ?? ''} placeholder={T.common.none}
                 options={sets.map((s) => ({ value: s._id, label: s.name }))}
                 onChange={(e) => setSettings({ ...settings, defaultDeliverableSetId: e.target.value || null })} />
-              <Button loading={saving} onClick={() => run(() => wqSettingsApi.update({ defaultDeliverableSetId: settings.defaultDeliverableSetId }))}>{T.common.save}</Button>
+              <div className="rounded-xl bg-ink-50 p-3.5 ring-1 ring-inset ring-ink-100">
+                <Switch label={S.showFestivals} description={S.showFestivalsHint} checked={settings.showFestivals !== false}
+                  onChange={(event) => setSettings({ ...settings, showFestivals: event.target.checked })} />
+              </div>
+              <Button loading={saving} onClick={() => run(() => wqSettingsApi.update({
+                defaultDeliverableSetId: settings.defaultDeliverableSetId,
+                showFestivals: settings.showFestivals !== false,
+              }))}>{T.common.save}</Button>
             </>
           )}
           {tab === 'export' && (
@@ -98,7 +106,7 @@ const PermissionMatrix = ({ value, onSave, saving }) => {
           <thead>
             <tr className="border-b border-ink-200 text-left text-xs uppercase tracking-wide text-ink-400">
               <th className="py-2">Action</th>
-              {WQ_ROLES.map((r) => <th key={r} className="py-2 text-center capitalize">{r}</th>)}
+              {WQ_ROLES.map((r) => <th key={r} className="py-2 text-center">{humanize(r)}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -106,7 +114,7 @@ const PermissionMatrix = ({ value, onSave, saving }) => {
               <tr key={action} className="border-b border-ink-100">
                 <td className="py-2.5 text-ink-800">{S.actions[action]}</td>
                 {WQ_ROLES.map((role) => {
-                  const locked = role === 'admin' && action === 'managePermissions';
+                  const locked = ['super_admin', 'admin'].includes(role) && action === 'managePermissions';
                   return (
                     <td key={role} className="py-2.5 text-center">
                       <input type="checkbox" className="h-4.5 w-4.5 accent-brand-500" checked={Boolean(m[role]?.[action])} disabled={locked}

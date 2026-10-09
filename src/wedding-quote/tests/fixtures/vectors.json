@@ -241,7 +241,7 @@
       }
     },
     {
-      "name": "add-on none never changes total",
+      "name": "add-on stays separate when its total switch is off",
       "days": [
         {
           "entries": [
@@ -271,7 +271,7 @@
       }
     },
     {
-      "name": "add-on with a price never changes the total",
+      "name": "priced add-on stays separate when its total switch is off",
       "days": [
         {
           "entries": [

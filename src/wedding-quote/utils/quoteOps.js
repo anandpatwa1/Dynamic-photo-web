@@ -94,6 +94,12 @@ export const setEntryQuantity = (quote, entryId, quantity) => {
   return recompute(q);
 };
 
+export const setDayDate = (quote, dayId, date) => {
+  const q = clone(quote);
+  for (const day of q.days ?? []) if (String(day._id) === String(dayId)) day.date = date;
+  return recompute(q);
+};
+
 export const setLineNote = (quote, lineId, note) => {
   const q = clone(quote);
   q.deliverables.lines = q.deliverables.lines.map((l) => (String(l._id) === String(lineId) ? { ...l, note } : l));
@@ -110,12 +116,37 @@ export const addNote = (quote, text = '') => ({ ...clone(quote), notes: [...(quo
 export const updateNote = (quote, index, text) => ({ ...clone(quote), notes: (quote.notes ?? []).map((n, i) => (i === index ? text : n)) });
 export const removeNote = (quote, index) => ({ ...clone(quote), notes: (quote.notes ?? []).filter((_, i) => i !== index) });
 
+const shiftPriceOverrides = (quote, amount) => {
+  if (!amount || !quote.pricing?.override) return;
+  for (const key of ['mrp', 'selling']) {
+    const value = quote.pricing.override[key];
+    if (value !== null && value !== undefined && value !== '') {
+      quote.pricing.override[key] = Math.max(0, toRupees(value) + amount);
+    }
+  }
+};
+
 export const setAddOnFromMaster = (quote, master) => {
   const q = clone(quote);
+  const previous = q.addOn?.snapshot;
+  if (previous?.includeInTotal) shiftPriceOverrides(q, -toRupees(previous.priceAmount));
   q.addOn = master
-    ? { snapshot: { addOnId: master._id, kind: master.kind, title: master.title, text: master.text ?? '', badge: master.badge ?? '', valueAmount: master.valueAmount ?? 0, priceEffect: master.priceEffect ?? 'none', priceAmount: master.priceAmount ?? 0 } }
+    ? { snapshot: { addOnId: master._id, kind: master.kind, title: master.title, text: master.text ?? '', badge: master.badge ?? '', valueAmount: master.valueAmount ?? 0, priceEffect: master.priceEffect ?? 'none', priceAmount: master.priceAmount ?? 0, includeInTotal: false } }
     : { snapshot: null };
   for (const k of ['addOn.title', 'addOn.text', 'addOn.badge', 'addOn.price']) delete q.textOverrides?.[k];
+  return recompute(q);
+};
+
+export const setAddOnIncluded = (quote, includeInTotal) => {
+  const q = clone(quote);
+  if (q.addOn?.snapshot) {
+    const wasIncluded = Boolean(q.addOn.snapshot.includeInTotal);
+    const nextIncluded = Boolean(includeInTotal);
+    if (wasIncluded !== nextIncluded) {
+      shiftPriceOverrides(q, (nextIncluded ? 1 : -1) * toRupees(q.addOn.snapshot.priceAmount));
+      q.addOn.snapshot.includeInTotal = nextIncluded;
+    }
+  }
   return recompute(q);
 };
 
@@ -141,6 +172,7 @@ export const quoteToBody = (quote) => {
         title: quote.textOverrides?.['addOn.title'] ?? snap.title,
         text: quote.textOverrides?.['addOn.text'] ?? snap.text,
         badge: quote.textOverrides?.['addOn.badge'] ?? snap.badge,
+        includeInTotal: Boolean(snap.includeInTotal),
       }
     : null;
   const body = {

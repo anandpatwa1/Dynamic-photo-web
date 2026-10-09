@@ -30,6 +30,14 @@ export const wqQuoteApi = {
   breakdown: (id) => api.get(`${base}/quotes/${id}/breakdown`).then(unwrap),
 };
 
+export const wqBookingApi = {
+  month: (year, month) => api.get(`${base}/bookings`, { params: { year, month } }).then(unwrap),
+  create: (payload) => api.post(`${base}/bookings`, payload).then(unwrap),
+  createMany: (payload) => api.post(`${base}/bookings/bulk`, payload).then(unwrap),
+  update: (id, payload) => api.patch(`${base}/bookings/${id}`, payload).then(unwrap),
+  remove: (id) => api.delete(`${base}/bookings/${id}`).then(unwrap),
+};
+
 export const wqSettingsApi = {
   me: () => api.get(`${base}/settings/me`).then(unwrap),
   get: () => api.get(`${base}/settings`).then(unwrap),

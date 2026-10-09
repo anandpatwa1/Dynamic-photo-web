@@ -43,7 +43,7 @@ import {
 } from '@/redux/project/projectSlice';
 import { useListQuery } from '@/hooks/useListQuery';
 import { useAuth } from '@/hooks/useAuth';
-import { PACKAGE_CATEGORIES, PROJECT_STATUS_META, statusOptions } from '@/constants';
+import { PACKAGE_CATEGORIES, PERMISSIONS, PROJECT_STATUS_META, statusOptions } from '@/constants';
 import { formatCompactCurrency, formatCurrency, formatDate, humanize } from '@/utils/format';
 import { cn } from '@/utils/cn';
 import { ProjectFormModal } from './ProjectFormModal';
@@ -52,7 +52,7 @@ const STATUS_OPTIONS = statusOptions(PROJECT_STATUS_META);
 
 const PRIORITY_TONE = { high: 'danger', normal: 'neutral', low: 'neutral' };
 
-const ProjectCard = ({ project, canManage, onEdit, onDelete, onAdvance }) => (
+const ProjectCard = ({ project, canEdit, canDelete, onEdit, onDelete, onAdvance }) => (
   <article className="group flex flex-col rounded-2xl bg-white shadow-card transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:shadow-card-hover">
     <header className="flex items-start justify-between gap-3 p-5 pb-4">
       <div className="min-w-0">
@@ -77,7 +77,7 @@ const ProjectCard = ({ project, canManage, onEdit, onDelete, onAdvance }) => (
         </p>
       </div>
 
-      {canManage && (
+      {(canEdit || canDelete) && (
         <Dropdown
           trigger={({ toggle }) => (
             <Button
@@ -91,19 +91,14 @@ const ProjectCard = ({ project, canManage, onEdit, onDelete, onAdvance }) => (
             />
           )}
         >
-          <DropdownItem icon={Pencil} onClick={() => onEdit(project)}>
-            Edit project
-          </DropdownItem>
-          <DropdownDivider />
-          {STATUS_OPTIONS.filter((option) => option.value !== project.status).map((option) => (
+          {canEdit && <DropdownItem icon={Pencil} onClick={() => onEdit(project)}>Edit project</DropdownItem>}
+          {canEdit && <DropdownDivider />}
+          {canEdit && STATUS_OPTIONS.filter((option) => option.value !== project.status).map((option) => (
             <DropdownItem key={option.value} onClick={() => onAdvance(project, option.value)}>
               Move to {option.label.toLowerCase()}
             </DropdownItem>
           ))}
-          <DropdownDivider />
-          <DropdownItem icon={Trash2} danger onClick={() => onDelete(project)}>
-            Delete
-          </DropdownItem>
+          {canDelete && <>{canEdit && <DropdownDivider />}<DropdownItem icon={Trash2} danger onClick={() => onDelete(project)}>Delete</DropdownItem></>}
         </Dropdown>
       )}
     </header>
@@ -157,7 +152,10 @@ export const Projects = () => {
   const loading = useSelector(selectProjectsLoading);
   const stats = useSelector(selectProjectStats);
   const saving = useSelector(selectProjectSaving);
-  const { canManage } = useAuth();
+  const { can } = useAuth();
+  const canCreate = can(PERMISSIONS.PROJECTS_CREATE);
+  const canEdit = can(PERMISSIONS.PROJECTS_EDIT);
+  const canDelete = can(PERMISSIONS.PROJECTS_DELETE);
 
   const { params, query, setPage, setLimit, setSearch, setFilter } = useListQuery({
     limit: 12,
@@ -211,7 +209,7 @@ export const Projects = () => {
         title="Projects"
         description="Every shoot from first enquiry to final delivery."
         actions={
-          canManage && (
+          canCreate && (
             <Button
               icon={Plus}
               onClick={() => {
@@ -299,9 +297,9 @@ export const Projects = () => {
               icon={FolderKanban}
               title="No projects yet"
               description="Create a project to track a shoot from enquiry through editing to delivery."
-              actionLabel={canManage ? 'Create a project' : undefined}
+              actionLabel={canCreate ? 'Create a project' : undefined}
               actionIcon={Plus}
-              onAction={canManage ? () => setFormOpen(true) : undefined}
+              onAction={canCreate ? () => setFormOpen(true) : undefined}
             />
           )}
         </div>
@@ -312,7 +310,8 @@ export const Projects = () => {
               <ProjectCard
                 key={project._id}
                 project={project}
-                canManage={canManage}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 onEdit={(item) => {
                   setEditing(item);
                   setFormOpen(true);

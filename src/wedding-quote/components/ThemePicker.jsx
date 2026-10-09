@@ -6,6 +6,7 @@ import { ThemePreview } from '../pages/themes/ThemePreview';
 import { T, fmt } from '../constants/strings';
 
 const TH = T.themes;
+const identityOf = (theme) => String(theme?._id ?? theme?.key ?? '');
 
 export const ThemePicker = ({ themes = [], assignedIds = [], value, dayCount, disabled, onChange }) => {
   const [open, setOpen] = useState(false);
@@ -17,7 +18,8 @@ export const ThemePicker = ({ themes = [], assignedIds = [], value, dayCount, di
     if (scope === 'assigned' && assigned.size && !assigned.has(String(theme._id))) return false;
     return theme.name.toLowerCase().includes(query.trim().toLowerCase());
   }), [themes, scope, assigned, query]);
-  const selected = themes.find((theme) => String(theme._id) === String(value)) ?? themes[0];
+  const selectedIndex = Math.max(0, themes.findIndex((theme) => identityOf(theme) === String(value ?? '')));
+  const selected = themes[selectedIndex];
 
   return (
     <>
@@ -34,10 +36,10 @@ export const ThemePicker = ({ themes = [], assignedIds = [], value, dayCount, di
         {visible.length ? (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             {visible.map((theme) => {
-              const active = String(theme._id) === String(value);
+              const active = identityOf(theme) === identityOf(selected);
               const compatible = (theme.forDays ?? []).includes(dayCount);
               return (
-                <button key={theme._id} type="button" onClick={() => { onChange(theme._id); setOpen(false); }}
+                <button key={identityOf(theme)} type="button" aria-pressed={active} onClick={() => { if (theme._id) onChange(theme._id); setOpen(false); }}
                   className={cn('overflow-hidden rounded-2xl bg-white p-2 text-left ring-1 transition hover:-translate-y-0.5 hover:shadow-card-hover', active ? 'ring-2 ring-brand-500' : 'ring-ink-200')}>
                   <div className="relative flex justify-center overflow-hidden rounded-xl bg-ink-100">
                     <ThemePreview theme={theme} dayCount={dayCount} width={150} />

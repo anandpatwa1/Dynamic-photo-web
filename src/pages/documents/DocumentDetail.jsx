@@ -45,7 +45,7 @@ import {
 import { documentApi } from '@/api/documentApi';
 import { DocumentPreview } from '@/components/pdf/DocumentPreview';
 import { useAuth } from '@/hooks/useAuth';
-import { DOCUMENT_STATUS_META, DOCUMENT_TYPE_OPTIONS, PDF_THEMES } from '@/constants';
+import { DOCUMENT_STATUS_META, DOCUMENT_TYPE_OPTIONS, PDF_THEMES, PERMISSIONS } from '@/constants';
 import { formatCurrency, formatDate } from '@/utils/format';
 
 const STATUS_ACTIONS = [
@@ -62,7 +62,10 @@ export const DocumentDetail = () => {
   const doc = useSelector(selectCurrentDocument);
   const loading = useSelector(selectDocumentLoading);
   const saving = useSelector(selectDocumentSaving);
-  const { canManage } = useAuth();
+  const { can } = useAuth();
+  const canCreate = can(PERMISSIONS.DOCUMENTS_CREATE);
+  const canEdit = can(PERMISSIONS.DOCUMENTS_EDIT);
+  const canDelete = can(PERMISSIONS.DOCUMENTS_DELETE);
 
   // Preview theme is local — it never changes the stored document.
   const [previewTheme, setPreviewTheme] = useState(null);
@@ -179,28 +182,24 @@ export const DocumentDetail = () => {
               Download
             </Button>
 
-            {canManage && (
+            {(canCreate || canEdit || canDelete) && (
               <Dropdown
                 align="right"
                 trigger={({ toggle }) => (
                   <Button variant="secondary" iconOnly icon={Pencil} onClick={toggle} aria-label="More actions" />
                 )}
               >
-                <DropdownItem as={Link} to={`/CRM/documents/${id}/edit`} icon={Pencil}>
-                  Edit document
-                </DropdownItem>
-                <DropdownItem icon={Copy} onClick={handleDuplicate}>
-                  Duplicate
-                </DropdownItem>
+                {canEdit && <DropdownItem as={Link} to={`/CRM/documents/${id}/edit`} icon={Pencil}>Edit document</DropdownItem>}
+                {canCreate && <DropdownItem icon={Copy} onClick={handleDuplicate}>Duplicate</DropdownItem>}
 
-                <DropdownDivider />
-                {STATUS_ACTIONS.filter((action) => action.status !== doc.status).map((action) => (
+                {canEdit && <DropdownDivider />}
+                {canEdit && STATUS_ACTIONS.filter((action) => action.status !== doc.status).map((action) => (
                   <DropdownItem key={action.status} icon={action.icon} onClick={() => handleStatus(action.status)}>
                     {action.label}
                   </DropdownItem>
                 ))}
 
-                {!doc.convertedTo && convertTargets.length > 0 && (
+                {canCreate && !doc.convertedTo && convertTargets.length > 0 && (
                   <>
                     <DropdownDivider />
                     {convertTargets.map((target) => (
@@ -215,10 +214,7 @@ export const DocumentDetail = () => {
                   </>
                 )}
 
-                <DropdownDivider />
-                <DropdownItem icon={Trash2} danger onClick={() => setConfirmOpen(true)}>
-                  Delete
-                </DropdownItem>
+                {canDelete && <>{(canCreate || canEdit) && <DropdownDivider />}<DropdownItem icon={Trash2} danger onClick={() => setConfirmOpen(true)}>Delete</DropdownItem></>}
               </Dropdown>
             )}
           </>

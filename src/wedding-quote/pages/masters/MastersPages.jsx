@@ -43,7 +43,7 @@ export const AddOnsPage = () => (
         <div><p className="font-medium text-ink-900">{r.badge && <Badge size="sm" className="mr-2">{r.badge}</Badge>}{r.title}</p><p className="text-xs text-ink-500">{r.text}</p></div>
       ) },
       { key: 'kind', header: T.addOns.kind, render: (r) => T.addOns.kinds[r.kind] ?? r.kind },
-      { key: 'priceEffect', header: T.addOns.priceEffect, render: (r) => (Number(r.priceAmount) > 0 ? `Add ${formatINR(r.priceAmount)}` : '—') },
+      { key: 'priceEffect', header: T.addOns.priceEffect, render: (r) => (Number(r.priceAmount) > 0 ? `Extra ${formatINR(r.priceAmount)}` : '—') },
     ]} />
 );
 

@@ -50,6 +50,7 @@ export const SegmentedControl = ({ options = [], value, onChange, className }) =
         <button
           key={option.value}
           type="button"
+          aria-pressed={active}
           onClick={() => onChange(option.value)}
           className={cn(
             'rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150 ease-smooth',

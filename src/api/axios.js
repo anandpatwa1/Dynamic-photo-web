@@ -4,10 +4,17 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 export const TOKEN_KEY = 'dp_access_token';
 export const REFRESH_KEY = 'dp_refresh_token';
+export const BUSINESS_CONTEXT_KEY = 'dp_business_context';
 
 export const tokenStore = {
   getAccess: () => localStorage.getItem(TOKEN_KEY),
   getRefresh: () => localStorage.getItem(REFRESH_KEY),
+  getBusinessContext: () => localStorage.getItem(BUSINESS_CONTEXT_KEY),
+  setBusinessContext: (businessSlug) => {
+    if (businessSlug) localStorage.setItem(BUSINESS_CONTEXT_KEY, String(businessSlug));
+    else localStorage.removeItem(BUSINESS_CONTEXT_KEY);
+  },
+  clearBusinessContext: () => localStorage.removeItem(BUSINESS_CONTEXT_KEY),
   set: ({ accessToken, refreshToken }) => {
     if (accessToken) localStorage.setItem(TOKEN_KEY, accessToken);
     if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
@@ -15,6 +22,7 @@ export const tokenStore = {
   clear: () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
+    localStorage.removeItem(BUSINESS_CONTEXT_KEY);
   },
 };
 
@@ -27,6 +35,8 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = tokenStore.getAccess();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  const businessContext = tokenStore.getBusinessContext();
+  if (businessContext) config.headers['X-Business-Context'] = businessContext;
   return config;
 });
 
@@ -36,11 +46,15 @@ let refreshPromise = null;
 const refreshAccessToken = async () => {
   const refreshToken = tokenStore.getRefresh();
   if (!refreshToken) throw new Error('No refresh token');
+  const businessContext = tokenStore.getBusinessContext();
 
   const { data } = await axios.post(
     `${BASE_URL}/auth/refresh`,
     { refreshToken },
-    { withCredentials: true },
+    {
+      withCredentials: true,
+      headers: businessContext ? { 'X-Business-Context': businessContext } : undefined,
+    },
   );
   tokenStore.set(data.data);
   return data.data.accessToken;

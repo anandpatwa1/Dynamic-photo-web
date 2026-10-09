@@ -28,7 +28,7 @@ import {
 } from '@/redux/package/packageSlice';
 import { useListQuery } from '@/hooks/useListQuery';
 import { useAuth } from '@/hooks/useAuth';
-import { PACKAGE_CATEGORIES } from '@/constants';
+import { PACKAGE_CATEGORIES, PERMISSIONS } from '@/constants';
 import { formatCompactCurrency } from '@/utils/format';
 import { PackageCard } from './PackageCard';
 import { PackageFormModal } from './PackageFormModal';
@@ -45,7 +45,10 @@ export const Packages = () => {
   const loading = useSelector(selectPackagesLoading);
   const stats = useSelector(selectPackageStats);
   const saving = useSelector(selectPackageSaving);
-  const { canManage } = useAuth();
+  const { can } = useAuth();
+  const canCreate = can(PERMISSIONS.PACKAGES_CREATE);
+  const canEdit = can(PERMISSIONS.PACKAGES_EDIT);
+  const canDelete = can(PERMISSIONS.PACKAGES_DELETE);
 
   const { params, query, setPage, setLimit, setSearch, setFilter } = useListQuery({
     limit: 12,
@@ -107,7 +110,7 @@ export const Packages = () => {
         title="Packages"
         description="Reusable pricing and deliverables. Selecting one on a document fills in everything at once."
         actions={
-          canManage && (
+          canCreate && (
             <Button icon={Plus} onClick={openCreate}>
               New package
             </Button>
@@ -183,9 +186,9 @@ export const Packages = () => {
               icon={PackageIcon}
               title="No packages yet"
               description="Build your first package — wedding, monthly content, product shoot — and reuse it on every quotation."
-              actionLabel={canManage ? 'Create your first package' : undefined}
+              actionLabel={canCreate ? 'Create your first package' : undefined}
               actionIcon={Plus}
-              onAction={canManage ? openCreate : undefined}
+              onAction={canCreate ? openCreate : undefined}
             />
           )}
         </div>
@@ -196,7 +199,9 @@ export const Packages = () => {
               <PackageCard
                 key={pkg._id}
                 package={pkg}
-                canManage={canManage}
+                canCreate={canCreate}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 onEdit={(item) => {
                   setEditing(item);
                   setFormOpen(true);

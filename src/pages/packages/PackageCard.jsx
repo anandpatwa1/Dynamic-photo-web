@@ -27,7 +27,7 @@ const MAX_VISIBLE_DELIVERABLES = 4;
  * Product-style card for a package. The price block deliberately mirrors the
  * printed document — same hierarchy, same struck-through original price.
  */
-export const PackageCard = ({ package: pkg, canManage, onEdit, onDuplicate, onDelete }) => {
+export const PackageCard = ({ package: pkg, canCreate, canEdit, canDelete, onEdit, onDuplicate, onDelete }) => {
   const hasDiscount = pkg.discountAmount > 0;
   const visible = pkg.deliverables?.slice(0, MAX_VISIBLE_DELIVERABLES) ?? [];
   const remaining = (pkg.deliverables?.length ?? 0) - visible.length;
@@ -57,7 +57,7 @@ export const PackageCard = ({ package: pkg, canManage, onEdit, onDuplicate, onDe
           </h3>
         </div>
 
-        {canManage && (
+        {(canCreate || canEdit || canDelete) && (
           <Dropdown
             trigger={({ toggle }) => (
               <Button
@@ -71,16 +71,9 @@ export const PackageCard = ({ package: pkg, canManage, onEdit, onDuplicate, onDe
               />
             )}
           >
-            <DropdownItem icon={Pencil} onClick={() => onEdit(pkg)}>
-              Edit package
-            </DropdownItem>
-            <DropdownItem icon={Copy} onClick={() => onDuplicate(pkg)}>
-              Duplicate
-            </DropdownItem>
-            <DropdownDivider />
-            <DropdownItem icon={Trash2} danger onClick={() => onDelete(pkg)}>
-              Delete
-            </DropdownItem>
+            {canEdit && <DropdownItem icon={Pencil} onClick={() => onEdit(pkg)}>Edit package</DropdownItem>}
+            {canCreate && <DropdownItem icon={Copy} onClick={() => onDuplicate(pkg)}>Duplicate</DropdownItem>}
+            {canDelete && <>{(canCreate || canEdit) && <DropdownDivider />}<DropdownItem icon={Trash2} danger onClick={() => onDelete(pkg)}>Delete</DropdownItem></>}
           </Dropdown>
         )}
       </header>

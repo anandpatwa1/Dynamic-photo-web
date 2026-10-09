@@ -18,9 +18,44 @@ export const initialWizardState = (today = new Date()) => ({
   setId: null,
   lines: [],
   addOnId: null,
+  includeAddOnInTotal: false,
   label: '',
   quoteId: null,
   error: null,
+});
+
+/** Re-opens a saved quote in the same five-step setup flow. */
+export const wizardStateFromQuote = (quote, today = new Date()) => ({
+  ...initialWizardState(today),
+  // The editor is conceptually one step after setup. Re-open an existing
+  // quote at the final setup step so Back moves through earlier steps.
+  step: WIZARD_STEPS - 1,
+  view: quote?.days?.[0]?.date
+    ? { month: quote.days[0].date.month, year: quote.days[0].date.year }
+    : { month: today.getMonth() + 1, year: today.getFullYear() },
+  days: (quote?.days ?? []).map((day) => ({
+    ...day,
+    _id: String(day._id),
+    entries: (day.entries ?? []).map((entry) => ({
+      ...entry,
+      _id: String(entry._id),
+      itemId: String(entry.itemId),
+      quantity: Math.max(1, Math.min(99, Math.round(Number(entry.quantity) || 1))),
+    })),
+  })),
+  printYear: quote?.printYear ? String(quote.printYear) : '',
+  package: {
+    presetId: quote?.packageSnapshot?.presetId ? String(quote.packageSnapshot.presetId) : null,
+    name: quote?.packageSnapshot?.name ?? '',
+    subtitle: quote?.packageSnapshot?.subtitle ?? '',
+    description: quote?.packageSnapshot?.description ?? '',
+  },
+  setId: quote?.deliverables?.setId ? String(quote.deliverables.setId) : null,
+  lines: (quote?.deliverables?.lines ?? []).map((line) => ({ ...line, _id: String(line._id) })),
+  addOnId: quote?.addOn?.snapshot?.addOnId ? String(quote.addOn.snapshot.addOnId) : null,
+  includeAddOnInTotal: Boolean(quote?.addOn?.snapshot?.includeInTotal),
+  label: quote?.label ?? '',
+  quoteId: String(quote?._id ?? ''),
 });
 
 const withReels = (state) => ({ ...state, lines: recalcReels(state.lines, flattenEntries(state.days), newObjectId) });
@@ -33,6 +68,34 @@ const snapshotOf = (item) => ({
   deliverables: item.deliverables ?? [],
   note: item.note ?? '',
 });
+
+const addOrIncrementEntry = (day, item, side) => {
+  const match = day.entries.find((entry) => String(entry.itemId) === String(item._id) && entry.side === side);
+  if (!match) {
+    return {
+      ...day,
+      entries: [...day.entries, { _id: newObjectId(), itemId: item._id, side, quantity: 1, note: '', itemSnapshot: snapshotOf(item) }],
+    };
+  }
+  return {
+    ...day,
+    entries: day.entries.map((entry) => entry._id === match._id
+      ? { ...entry, quantity: Math.min(99, (Number(entry.quantity) || 1) + 1) }
+      : entry),
+  };
+};
+
+const mergeDuplicateEntries = (entries) => entries.reduce((merged, entry) => {
+  const match = merged.find((candidate) => String(candidate.itemId) === String(entry.itemId) && candidate.side === entry.side);
+  if (!match) return [...merged, entry];
+  return merged.map((candidate) => candidate._id === match._id
+    ? {
+        ...candidate,
+        quantity: Math.min(99, (Number(candidate.quantity) || 1) + (Number(entry.quantity) || 1)),
+        note: candidate.note || entry.note || '',
+      }
+    : candidate);
+}, []);
 
 export const canAdvance = (state) => {
   if (state.step === 0) return state.days.length > 0;
@@ -74,18 +137,11 @@ export const wizardReducer = (state, action) => {
     case 'addEntry': {
       // Re-adding the same item for the same side increases quantity. Bride,
       // groom, both and no-label remain separate priced choices.
-      const days = state.days.map((d, i) =>
-        i !== action.dayIndex ? d : {
-          ...d,
-          entries: (() => {
-            const match = d.entries.find((entry) => String(entry.itemId) === String(action.item._id) && entry.side === action.side);
-            if (!match) return [...d.entries, { _id: newObjectId(), itemId: action.item._id, side: action.side, quantity: 1, note: '', itemSnapshot: snapshotOf(action.item) }];
-            return d.entries.map((entry) => entry._id === match._id ? { ...entry, quantity: Math.min(99, (Number(entry.quantity) || 1) + 1) } : entry);
-          })(),
-        },
-      );
+      const days = state.days.map((day, index) => (index === action.dayIndex ? addOrIncrementEntry(day, action.item, action.side) : day));
       return withReels({ ...state, days });
     }
+    case 'addEntryAllDays':
+      return withReels({ ...state, days: state.days.map((day) => addOrIncrementEntry(day, action.item, action.side)) });
     case 'copyDayEntries': {
       const source = state.days[action.fromDayIndex];
       if (!source || action.toDayIndex < 0 || action.toDayIndex >= state.days.length) return state;
@@ -99,7 +155,9 @@ export const wizardReducer = (state, action) => {
     }
     case 'updateEntry': {
       const days = state.days.map((d, i) =>
-        i === action.dayIndex ? { ...d, entries: d.entries.map((e) => (e._id === action.entryId ? { ...e, ...action.patch } : e)) } : d,
+        i === action.dayIndex
+          ? { ...d, entries: mergeDuplicateEntries(d.entries.map((e) => (e._id === action.entryId ? { ...e, ...action.patch } : e))) }
+          : d,
       );
       return withReels({ ...state, days });
     }
@@ -114,11 +172,19 @@ export const wizardReducer = (state, action) => {
     case 'resetReels':
       return { ...state, lines: resetReelsToAuto(state.lines, flattenEntries(state.days), newObjectId) };
     case 'chooseAddOn':
-      return { ...state, addOnId: action.addOnId };
+      return {
+        ...state,
+        addOnId: action.addOnId,
+        includeAddOnInTotal: action.addOnId === state.addOnId ? state.includeAddOnInTotal : false,
+      };
+    case 'setIncludeAddOnInTotal':
+      return { ...state, includeAddOnInTotal: Boolean(action.value) };
     case 'setLabel':
       return { ...state, label: action.value };
     case 'setQuoteId':
       return { ...state, quoteId: action.id };
+    case 'loadQuote':
+      return wizardStateFromQuote(action.quote, action.today);
     case 'next':
       return canAdvance(state) ? { ...state, step: Math.min(WIZARD_STEPS - 1, state.step + 1), error: null } : { ...state, error: 'cannotAdvance' };
     case 'back':
@@ -145,5 +211,8 @@ export const wizardToBody = (state, { includeLines = true } = {}) => ({
   ...(includeLines && state.lines.length
     ? { deliverables: { setId: state.setId, lines: state.lines.map((l) => ({ _id: l._id, text: l.text, note: l.note ?? '', isAuto: Boolean(l.isAuto), isEdited: Boolean(l.isEdited) })) } }
     : {}),
-  addOn: state.addOnId ? { addOnId: state.addOnId } : null,
+  addOn: state.addOnId ? { addOnId: state.addOnId, includeInTotal: Boolean(state.includeAddOnInTotal) } : null,
+  // Setup changes rebuild the automatic total. A manual final-price override
+  // from the editor must not hide a newly included add-on or changed service.
+  pricing: { override: { mrp: null, selling: null } },
 });

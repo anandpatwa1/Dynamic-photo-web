@@ -17,14 +17,11 @@ const pricesOf = (source = {}) => ({
 const quantityOf = (entry) => Math.max(1, Math.min(99, Math.round(Number(entry?.quantity) || 1)));
 const add = (a, b) => ({ selling: a.selling + b.selling, cost: a.cost + b.cost, mrp: a.mrp + b.mrp });
 
-/**
- * An add-on never changes the totals. Its price is printed on the quote as
- * text ("Add Rs 10,000") and that is all; the quote total is items plus
- * deliverable lines, or the amount typed in by hand. Kept as a function so the
- * breakdown and old callers still work.
- */
-// eslint-disable-next-line no-unused-vars
-export const addOnEffect = (_addOn) => 0;
+/** Per-quote switch: add the snapshotted add-on price to the automatic total. */
+export const addOnEffect = (addOn) => {
+  const snapshot = addOn?.snapshot ?? addOn;
+  return snapshot?.includeInTotal ? toRupees(snapshot.priceAmount) : 0;
+};
 
 /** Override wins only when it is a real number; null/'' means "use auto". */
 const pickOverride = (value) =>
@@ -62,7 +59,12 @@ export const computePricing = (quote = {}) => {
   const linesTotal = lines.reduce((sum, l) => add(sum, l), zero());
 
   const auto = {};
-  for (const key of KEYS) auto[key] = Math.max(0, itemsTotal[key] + linesTotal[key] + effect);
+  for (const key of KEYS) {
+    // The add-on is revenue, not studio cost. Include it in both customer
+    // prices so an existing MRP/selling comparison remains meaningful.
+    const addOnAmount = key === 'cost' ? 0 : effect;
+    auto[key] = Math.max(0, itemsTotal[key] + linesTotal[key] + addOnAmount);
+  }
 
   const override = {
     mrp: pickOverride(quote.pricing?.override?.mrp),

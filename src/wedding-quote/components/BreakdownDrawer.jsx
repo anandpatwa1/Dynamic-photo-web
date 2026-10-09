@@ -22,7 +22,7 @@ const breakdownText = (b, canCost) => {
     lines.push('', S.deliverables);
     for (const l of b.lines) lines.push(`  ${l.text}: ${col(l)}`);
   }
-  if (b.addOn) lines.push('', `${S.addOn}: ${b.addOn.title}`);
+  if (b.addOn) lines.push('', `${S.addOn}: ${b.addOn.title}${Number(b.addOn.priceText) > 0 ? ` · ${formatINR(b.addOn.priceText)} · ${b.addOn.includedInTotal ? T.addOns.includedInTotal : T.addOns.excludedFromTotal}` : ''}`);
   lines.push('', `${S.totals}: ${col(b.auto)}`, `${S.displayed}: ${formatINR(b.display.selling)} (MRP ${formatINR(b.display.mrp)})`);
   if (b.delta.selling || b.delta.mrp) lines.push(`${S.delta}: ${formatINR(b.delta.selling)} / MRP ${formatINR(b.delta.mrp)}`);
   if (canCost) lines.push(`${S.profit}: ${formatINR(b.profit)} · ${S.margin}: ${b.marginPct}%`);
@@ -99,7 +99,9 @@ export const BreakdownDrawer = ({ quoteId, open, onClose, refreshKey }) => {
               )}
               {b.lines.map((l) => <Row key={l.lineId} label={l.text} sub={l.isAuto ? T.wizard.autoLine : ''} o={l} />)}
               {b.addOn && (
-                <tr><td colSpan={cols.length + 2} className="pt-3 text-xs text-ink-500">{S.addOn}: {b.addOn.title}</td></tr>
+                <tr><td colSpan={cols.length + 2} className="pt-3 text-xs text-ink-500">
+                  {S.addOn}: {b.addOn.title}{Number(b.addOn.priceText) > 0 ? ` · ${formatINR(b.addOn.priceText)} · ${b.addOn.includedInTotal ? T.addOns.includedInTotal : T.addOns.excludedFromTotal}` : ''}
+                </td></tr>
               )}
               <tr><td colSpan={cols.length + 2} className="border-t border-ink-200" /></tr>
               <Row label={S.totals} o={b.auto} strong />

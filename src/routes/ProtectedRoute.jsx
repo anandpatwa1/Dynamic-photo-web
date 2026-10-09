@@ -3,8 +3,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { PageLoader } from '@/components/ui';
 
 /** Gate for signed-in routes; remembers where the user was heading. */
-export const ProtectedRoute = ({ adminOnly = false }) => {
-  const { isAuthenticated, initialising, isAdmin } = useAuth();
+export const ProtectedRoute = ({ adminOnly = false, platformOnly = false, permission, feature }) => {
+  const { isAuthenticated, initialising, isAdmin, isPlatformAdmin, can, hasFeature } = useAuth();
   const location = useLocation();
 
   // Wait for the boot-time session check before deciding anything.
@@ -15,6 +15,9 @@ export const ProtectedRoute = ({ adminOnly = false }) => {
   }
 
   if (adminOnly && !isAdmin) return <Navigate to="/CRM/dashboard" replace />;
+  if (platformOnly && !isPlatformAdmin) return <Navigate to="/CRM/dashboard" replace />;
+  if (permission && !can(permission)) return <Navigate to="/CRM/dashboard" replace />;
+  if (feature && !hasFeature(feature)) return <Navigate to="/CRM/dashboard" replace />;
 
   return <Outlet />;
 };

@@ -8,6 +8,7 @@ export const STRINGS = {
     nav: {
       create: 'Create Wedding Quote',
       all: 'All Quotes',
+      bookings: 'Bookings Calendar',
       items: 'Items',
       sets: 'Deliverable Sets',
       addOns: 'Add-ons',
@@ -17,6 +18,17 @@ export const STRINGS = {
       settings: 'Quote Settings',
       mastersGroup: 'Masters',
       themesGroup: 'Themes',
+    },
+    bookings: {
+      title: 'Bookings Calendar', description: 'See studio bookings before choosing quote dates.',
+      selectedDate: 'Selected date', add: 'Add booking', update: 'Update booking', noBookings: 'No bookings on this date',
+      bookingTitle: 'Client / booking title', bookingTitleHint: 'Optional — the booking type will be used when empty',
+      type: 'Booking type', colour: 'Booking colour', useTypeColour: 'Use type colour', note: 'Short note',
+      coloursTitle: 'Booking types & colours', coloursHint: 'Changing a type colour also updates bookings using its default colour.',
+      saveColours: 'Save colours', festivals: 'Festivals', festivalHint: 'Public holidays and major observances from the India holiday calendar.',
+      count: '{n} bookings', oneBooking: '1 booking', edit: 'Edit booking', delete: 'Delete booking',
+      selectedDates: 'Dates for this booking', selectedDatesHint: 'Tap calendar dates to add or remove them.',
+      noSelectedDates: 'Select at least one date from the calendar', addToDates: 'Add booking to {n} dates',
     },
     common: {
       save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit', add: 'Add', back: 'Back', next: 'Next',
@@ -38,15 +50,17 @@ export const STRINGS = {
       isDefault: 'Default set', makeDefault: 'Make default', lines: 'Lines', addLine: 'Add line', empty: 'No deliverable sets yet', defaultBadge: 'Default',
     },
     addOns: {
-      title: 'Add-ons', description: 'One add-on (or none) per quote, shown as a badge. Its price is only printed on the quote; it never changes the total.', add: 'Add add-on',
+      title: 'Add-ons', description: 'One add-on (or none) per quote, shown as a badge. Its price can be included in each quote when needed.', add: 'Add add-on',
       kind: 'Type', kinds: { free: 'Free', discount: 'Discount', surprise: 'Surprise', custom: 'Custom' },
       badge: 'Badge text', text: 'Text', titleField: 'Title', valueAmount: 'Worth (₹)',
       priceEffect: 'Price on quote', effects: { none: 'None (badge only)', add: 'Add to total', subtract: 'Subtract from total' },
-      priceAmount: 'Price to print (₹)', priceHint: 'Printed as "Add ₹…". Leave 0 to print no price. It does not change the quote total.', printedPrice: 'Add-on price line', empty: 'No add-ons yet',
+      priceAmount: 'Add-on price (₹)', priceHint: 'Leave 0 to show no price. While making a quote, choose whether this amount is included in the total.', printedPrice: 'Add-on price line', empty: 'No add-ons yet',
+      includeInTotal: 'Include price in total amount', includedInTotal: 'Price included in total', excludedFromTotal: 'Price shown separately',
     },
     presets: { title: 'Package Presets', description: 'Ready-made package names and subtitles.', add: 'Add preset', subtitle: 'Subtitle', descriptionField: 'Description', empty: 'No presets yet' },
     settings: {
       title: 'Quote Settings', defaults: 'Defaults', export: 'Export defaults', permissions: 'Permissions',
+      showFestivals: 'Show festivals on calendars', showFestivalsHint: 'Display major Indian festivals while adding bookings and choosing quote dates.',
       defaultSet: 'Default deliverable set', quality: 'JPG quality', width: 'Width (px)', scale: 'Scale',
       role: 'Role', savePermissions: 'Save permissions', adminLocked: 'Admins always keep "Manage permissions".',
       actions: {
@@ -65,6 +79,7 @@ export const STRINGS = {
       itemsTitle: 'Add items for', dayOf: 'Day {n} of {total}', subtotal: 'Day subtotal', addItem: 'Add', side: 'Side', addAs: 'Add services for', entryNote: 'Note for this entry', quantity: 'Qty',
       noItemsOnDay: 'No items on this date yet', searchItems: 'Search services…', selectedItems: 'Selected services',
       copyPreviousDay: 'Copy previous day', copiedPreviousDay: 'Previous day copied', availableItems: 'Available services', noMatchingItems: 'No matching services',
+      addAllDates: 'All dates', addAllDatesLabel: 'Add to all dates', selectedHint: 'Review quantities, labels and notes without moving the service list.',
       quoteSummary: 'Quote summary', services: 'services', total: 'Total',
       setTitle: 'Choose deliverables', autoLine: 'Auto', resetAuto: 'Reset to auto', edited: 'Edited',
       addOnTitle: 'Choose an add-on', noAddOn: 'No add-on', finish: 'Open editor', creating: 'Creating draft…', label: 'Internal label (never printed)',
@@ -75,7 +90,7 @@ export const STRINGS = {
     },
     breakdown: {
       title: 'Price breakdown', item: 'Item', side: 'Side', selling: 'Selling', cost: 'Cost', mrp: 'MRP', deliverables: 'Deliverable lines',
-      addOn: 'Add-on (printed only, not in total)', totals: 'Auto totals', override: 'Override', delta: 'Override delta', profit: 'Profit', margin: 'Margin',
+      addOn: 'Add-on', totals: 'Auto totals', override: 'Override', delta: 'Override delta', profit: 'Profit', margin: 'Margin',
       displayed: 'Shown on quote', costHidden: 'Costing is hidden for your role.', copy: 'Copy as text', print: 'Print', day: 'Date',
     },
     editor: {
@@ -84,7 +99,7 @@ export const STRINGS = {
       priceAuto: 'Auto', priceOverride: 'Override', notes: 'Notes', addNote: 'Add note', overCap: 'Content is longer than the 9:16 cap even at the smallest font size — the image will be taller.',
       fields: { package: 'Package', dates: 'Dates', items: 'Items', deliverables: 'Deliverables', addOn: 'Add-on', price: 'Price', notes: 'Notes', footer: 'Footer' },
       empty: '(empty)', clickToEdit: 'Click any text on the quote to edit it', blocks: { title: 'Title', subtitle: 'Subtitle', dates: 'Dates', deliverables: 'Deliverables', addOn: 'Add-on badge', price: 'Price', notes: 'Notes', footer: 'Footer' },
-      breakdown: 'Breakdown', recalc: 'Recalculate',
+      breakdown: 'Breakdown', recalc: 'Recalculate', editSetup: 'Back to setup', actualDate: 'Wedding date', printedDate: 'Printed date text',
     },
     export: {
       title: 'Export JPG', quality: 'Quality', width: 'Width', estimated: 'Estimated size', dimensions: 'Dimensions', capped: 'Longest side capped at 4096 px for mobile safety.',

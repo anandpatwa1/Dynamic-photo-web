@@ -17,6 +17,7 @@ export const authApi = {
   },
 
   listUsers: () => api.get('/auth/users').then(unwrap),
+  getAccessConfig: () => api.get('/auth/access-config').then(unwrap),
   updateUser: (id, payload) => api.patch(`/auth/users/${id}`, payload).then(unwrap),
   deleteUser: (id) => api.delete(`/auth/users/${id}`).then(unwrap),
 };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canAdvance, initialWizardState, wizardReducer, wizardToBody } from '../utils/wizardReducer';
+import { canAdvance, initialWizardState, wizardReducer, wizardToBody, WIZARD_STEPS } from '../utils/wizardReducer';
 import { editorReducer, initialEditorState, isDirty } from '../utils/editorReducer';
 import * as ops from '../utils/quoteOps';
 import { buildPrintModel } from '../utils/engine/display';
@@ -93,6 +93,11 @@ describe('wizard reducer', () => {
     const body = wizardToBody(s);
     expect(JSON.stringify(body)).not.toMatch(/sellingPrice|costPrice|itemSnapshot/);
     expect(body.packageSnapshot.name).toBe('Destination Wedding Package');
+    expect(body.pricing.override).toEqual({ mrp: null, selling: null });
+  });
+  it('opens an existing quote on the final setup step', () => {
+    const state = wizardReducer(initialWizardState(), { type: 'loadQuote', quote: { _id: 'q1', days: [] } });
+    expect(state.step).toBe(WIZARD_STEPS - 1);
   });
 });
 
@@ -152,6 +157,14 @@ describe('side panel ↔ canvas sync (same ops, same print model)', () => {
     expect(ops.quoteToBody(q).pricing.override.selling).toBe(80000);
     q = ops.setPriceOverride(q, 'selling', null);
     expect(buildPrintModel(q).price.selling).toBe(82000);
+  });
+  it('adds and removes an included add-on from an existing manual total', () => {
+    let q = ops.setPriceOverride(baseQuote(), 'selling', 80000);
+    q = ops.setAddOnFromMaster(q, { _id: 'a1', kind: 'custom', title: 'Album upgrade', priceAmount: 5000 });
+    q = ops.setAddOnIncluded(q, true);
+    expect(buildPrintModel(q).price.selling).toBe(85000);
+    q = ops.setAddOnIncluded(q, false);
+    expect(buildPrintModel(q).price.selling).toBe(80000);
   });
   it('notes deduped on the quote (case/space-insensitive)', () => {
     expect(buildPrintModel(baseQuote()).notes).toEqual(['album in 45 DAYS', 'Travel extra']);

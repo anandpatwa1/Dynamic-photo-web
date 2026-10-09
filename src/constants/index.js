@@ -1,16 +1,57 @@
 export const APP_NAME = import.meta.env.VITE_APP_NAME || 'Dynamic Production';
 
 export const ROLES = {
+  SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
+  SUB_ADMIN: 'sub_admin',
   MANAGER: 'manager',
   STAFF: 'staff',
 };
 
+export const ACCOUNT_SCOPES = {
+  PLATFORM: 'platform',
+  BUSINESS: 'business',
+};
+
+export const BUSINESS_FEATURES = {
+  PORTFOLIO: 'portfolio',
+  GALLERY: 'gallery',
+  PUBLIC_PROFILES: 'public_profiles',
+  WEBSITE_PACKAGES: 'website_packages',
+  TESTIMONIALS: 'testimonials',
+  INQUIRIES: 'inquiries',
+  CRM_CLIENTS: 'crm_clients',
+  CRM_PACKAGES: 'crm_packages',
+  PROJECTS: 'projects',
+  DOCUMENTS: 'documents',
+  PAYMENTS: 'payments',
+  REPORTS: 'reports',
+  WEDDING_QUOTES: 'wedding_quotes',
+  BOOKING_CALENDAR: 'booking_calendar',
+  THEME_LIBRARY: 'theme_library',
+  ADVANCED_ANALYTICS: 'advanced_analytics',
+};
+
 export const ROLE_OPTIONS = [
-  { value: ROLES.ADMIN, label: 'Admin', description: 'Full access, including settings and users' },
-  { value: ROLES.MANAGER, label: 'Manager', description: 'Manage clients, documents and projects' },
-  { value: ROLES.STAFF, label: 'Staff', description: 'View and update assigned work' },
+  { value: ROLES.SUPER_ADMIN, label: 'Super Admin', description: 'Owner access to every setting, user and activity' },
+  { value: ROLES.ADMIN, label: 'Admin', description: 'Full daily access, including team management' },
+  { value: ROLES.SUB_ADMIN, label: 'Sub Admin', description: 'Broad operational access without owner controls' },
+  { value: ROLES.MANAGER, label: 'Manager', description: 'Manage daily clients, jobs, documents and quotes' },
+  { value: ROLES.STAFF, label: 'Staff', description: 'View assigned work and create basic quotes' },
 ];
+
+export const PERMISSIONS = {
+  DASHBOARD_VIEW: 'dashboard.view', REPORTS_VIEW: 'reports.view',
+  CLIENTS_VIEW: 'clients.view', CLIENTS_CREATE: 'clients.create', CLIENTS_EDIT: 'clients.edit', CLIENTS_DELETE: 'clients.delete',
+  PACKAGES_VIEW: 'packages.view', PACKAGES_CREATE: 'packages.create', PACKAGES_EDIT: 'packages.edit', PACKAGES_DELETE: 'packages.delete',
+  PROJECTS_VIEW: 'projects.view', PROJECTS_CREATE: 'projects.create', PROJECTS_EDIT: 'projects.edit', PROJECTS_DELETE: 'projects.delete',
+  DOCUMENTS_VIEW: 'documents.view', DOCUMENTS_CREATE: 'documents.create', DOCUMENTS_EDIT: 'documents.edit', DOCUMENTS_DELETE: 'documents.delete',
+  PAYMENTS_VIEW: 'payments.view', PAYMENTS_CREATE: 'payments.create', PAYMENTS_EDIT: 'payments.edit', PAYMENTS_DELETE: 'payments.delete',
+  WQ_VIEW: 'wedding_quote.view', WQ_CREATE: 'wedding_quote.create', WQ_EDIT: 'wedding_quote.edit', WQ_DELETE: 'wedding_quote.delete',
+  WQ_MASTERS: 'wedding_quote.manage_masters', WQ_THEMES: 'wedding_quote.manage_themes', WQ_COSTING: 'wedding_quote.view_costing',
+  WQ_EXPORT: 'wedding_quote.export', WQ_PERMISSIONS: 'wedding_quote.manage_permissions',
+  WEBSITE_MANAGE: 'website.manage', SETTINGS_MANAGE: 'settings.manage', TEAM_MANAGE: 'team.manage', ACTIVITY_VIEW: 'activity.view',
+};
 
 export const DOCUMENT_TYPES = {
   QUOTATION: 'quotation',

@@ -8,6 +8,15 @@ import { T } from '../constants/strings';
 
 const E = T.editor;
 
+const dateInputValue = (date) => date
+  ? `${String(date.year).padStart(4, '0')}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
+  : '';
+
+const dateFromInput = (value) => {
+  const [year, month, day] = value.split('-').map(Number);
+  return { day, month, year };
+};
+
 /** Overrides-aware text field: shows the effective value, writes through setText, offers reset. */
 const OText = ({ quote, apply, path, label, auto, multiline }) => {
   const value = quote.textOverrides?.[path] ?? auto ?? '';
@@ -51,13 +60,19 @@ export const SidePanel = ({ quote, apply, studio, theme, addOns = [] }) => {
       </Section>
 
       <Section title={E.fields.dates}>
+        <div className="space-y-2 rounded-xl bg-ink-50 p-2.5">
+          {(quote.days ?? []).map((day, index) => (
+            <Input key={day._id} label={`${E.actualDate} ${index + 1}`} type="date" value={dateInputValue(day.date)}
+              onChange={(event) => event.target.value && apply((q) => ops.setDayDate(q, day._id, dateFromInput(event.target.value)))} />
+          ))}
+        </div>
         <Input label={T.wizard.printYear} hint={T.wizard.printYearHint} inputMode="numeric" value={quote.printYear ?? ''}
           onChange={(e) => apply((q) => ops.setField(q, 'printYear', e.target.value.replace(/\D/g, '').slice(0, 4) || null))} />
         <Switch label={E.groupDates} checked={Boolean(quote.layout?.options?.groupDates)} onChange={(e) => apply((q) => ops.setOption(q, 'groupDates', e.target.checked))} />
         <Switch label={E.caps} checked={quote.layout?.options?.caps !== false} onChange={(e) => apply((q) => ops.setOption(q, 'caps', e.target.checked))} />
         <Switch label={E.showSides} checked={quote.layout?.options?.showSides !== false} onChange={(e) => apply((q) => ops.setOption(q, 'showSides', e.target.checked))} />
         {model.dates.map((g, i) => (
-          <OText key={g.key} quote={quote} apply={apply} path={g.labelPath} label={`#${i + 1}`} auto={raw.dates[i]?.label} />
+          <OText key={g.key} quote={quote} apply={apply} path={g.labelPath} label={`${E.printedDate} ${i + 1}`} auto={raw.dates[i]?.label} />
         ))}
       </Section>
 
@@ -69,10 +84,16 @@ export const SidePanel = ({ quote, apply, studio, theme, addOns = [] }) => {
               <OText key={line.path} quote={quote} apply={apply} path={line.path} label={`Line ${li + 1}`} auto={raw.dates[gi]?.lines[li]?.text} />
             ))}
             {quote.days.filter((d) => g.dayIds.includes(String(d._id))).flatMap((d) => d.entries).map((e) => (
-              <div key={e._id} className="grid grid-cols-[72px_1fr] gap-2">
-                <Input label={T.wizard.quantity} type="number" min="1" max="99" value={e.quantity ?? 1}
-                  onChange={(ev) => apply((q) => ops.setEntryQuantity(q, e._id, ev.target.value))} />
-                <Input label={`${T.common.note}: ${e.itemSnapshot?.name}${e.side !== 'none' ? ` (${T.sides[e.side]})` : ''}`} value={e.note ?? ''} placeholder={E.empty}
+              <div key={e._id} className="space-y-2 rounded-xl bg-ink-50 p-2.5">
+                <div className="flex items-end gap-2">
+                  <div className="min-w-0 flex-1 pb-2">
+                    <p className="truncate font-medium text-ink-900"><span className="text-brand-700">{e.quantity ?? 1} ×</span> {e.itemSnapshot?.name}</p>
+                    <p className="text-xs text-ink-400">{e.side === 'none' ? T.sides.none : T.sides[e.side]}</p>
+                  </div>
+                  <Input label={T.wizard.quantity} aria-label={`${T.wizard.quantity}: ${e.itemSnapshot?.name}`} type="number" min="1" max="99" wrapperClassName="w-20 shrink-0" value={e.quantity ?? 1}
+                    onChange={(ev) => apply((q) => ops.setEntryQuantity(q, e._id, ev.target.value))} />
+                </div>
+                <Input label={T.common.note} aria-label={`${T.common.note}: ${e.itemSnapshot?.name}`} value={e.note ?? ''} placeholder={E.empty}
                   onChange={(ev) => apply((q) => ops.setEntryNote(q, e._id, ev.target.value))} />
               </div>
             ))}
@@ -101,10 +122,17 @@ export const SidePanel = ({ quote, apply, studio, theme, addOns = [] }) => {
           onChange={(e) => apply((q) => ops.setAddOnFromMaster(q, addOns.find((a) => a._id === e.target.value) ?? null))} />
         {quote.addOn?.snapshot && (
           <>
+            {Number(quote.addOn.snapshot.priceAmount) > 0 && (
+              <Switch label={T.addOns.includeInTotal}
+                description={`${formatINR(quote.addOn.snapshot.priceAmount)} · ${quote.addOn.snapshot.includeInTotal ? T.addOns.includedInTotal : T.addOns.excludedFromTotal}`}
+                checked={Boolean(quote.addOn.snapshot.includeInTotal)}
+                onChange={(event) => apply((q) => ops.setAddOnIncluded(q, event.target.checked))} />
+            )}
             <OText quote={quote} apply={apply} path="addOn.badge" label={T.addOns.badge} auto={quote.addOn.snapshot.badge} />
             <OText quote={quote} apply={apply} path="addOn.title" label={T.addOns.titleField} auto={quote.addOn.snapshot.title} />
             <OText quote={quote} apply={apply} path="addOn.text" label={T.addOns.text} auto={quote.addOn.snapshot.text} multiline />
-            <OText quote={quote} apply={apply} path="addOn.price" label={T.addOns.printedPrice} auto={Number(quote.addOn.snapshot.priceAmount) > 0 ? `Add ${formatINR(quote.addOn.snapshot.priceAmount)}` : ''} />
+            <OText quote={quote} apply={apply} path="addOn.price" label={T.addOns.printedPrice}
+              auto={Number(quote.addOn.snapshot.priceAmount) > 0 ? `${quote.addOn.snapshot.includeInTotal ? '' : 'Extra '}${formatINR(quote.addOn.snapshot.priceAmount)}` : ''} />
           </>
         )}
       </Section>

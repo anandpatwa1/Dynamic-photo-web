@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Users,
   Wallet,
+  LayoutGrid,
 } from 'lucide-react';
 
 import {
@@ -29,6 +30,7 @@ import { ChartCard, RevenueTrendChart } from '@/components/charts/Charts';
 import { reportApi } from '@/api/reportApi';
 import { parseApiError } from '@/api/axios';
 import { useAuth } from '@/hooks/useAuth';
+import { BUSINESS_FEATURES, PERMISSIONS } from '@/constants';
 import { DOCUMENT_STATUS_META, PROJECT_STATUS_META } from '@/constants';
 import { formatCompactCurrency, formatCurrency, formatDate, formatRelative } from '@/utils/format';
 
@@ -50,11 +52,14 @@ const ListRow = ({ to, title, subtitle, meta, badge }) => (
 );
 
 export const Dashboard = () => {
-  const { user, canManage } = useAuth();
+  const { user, can, hasFeature } = useAuth();
+  const canManage = can(PERMISSIONS.DOCUMENTS_CREATE);
+  const reportsEnabled = hasFeature(BUSINESS_FEATURES.REPORTS);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!reportsEnabled) return undefined;
     let cancelled = false;
 
     reportApi
@@ -69,7 +74,7 @@ export const Dashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reportsEnabled]);
 
   const loading = !data && !error;
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening';
@@ -80,7 +85,7 @@ export const Dashboard = () => {
         title={`${greeting}, ${user?.name?.split(' ')[0] ?? 'there'}`}
         description="Here's where the studio stands today."
         actions={
-          canManage && (
+          canManage && hasFeature(BUSINESS_FEATURES.DOCUMENTS) && (
             <Button as={Link} to="/CRM/documents/new?type=quotation" icon={Plus}>
               New quotation
             </Button>
@@ -88,9 +93,19 @@ export const Dashboard = () => {
         }
       />
 
-      <FormError error={error} className="mb-6" />
+      {!reportsEnabled && (
+        <Card>
+          <EmptyState
+            icon={LayoutGrid}
+            title="Your workspace is ready"
+            description="Use the available tools in the navigation to manage this business. Reporting can be enabled by the platform administrator."
+          />
+        </Card>
+      )}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {reportsEnabled && <FormError error={error} className="mb-6" />}
+
+      {reportsEnabled && <><div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Collected this month"
           value={formatCompactCurrency(data?.revenue?.thisMonth ?? 0)}
@@ -267,7 +282,7 @@ export const Dashboard = () => {
             )}
           </CardBody>
         </Card>
-      </div>
+      </div></>}
     </>
   );
 };

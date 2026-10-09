@@ -40,7 +40,7 @@ import {
 } from '@/redux/payment/paymentSlice';
 import { useListQuery } from '@/hooks/useListQuery';
 import { useAuth } from '@/hooks/useAuth';
-import { PAYMENT_MODES, PAYMENT_STATUS_META, statusOptions } from '@/constants';
+import { PAYMENT_MODES, PAYMENT_STATUS_META, PERMISSIONS, statusOptions } from '@/constants';
 import { formatCompactCurrency, formatCurrency, formatDate, humanize } from '@/utils/format';
 import { PaymentFormModal } from './PaymentFormModal';
 
@@ -53,7 +53,10 @@ export const Payments = () => {
   const loading = useSelector(selectPaymentsLoading);
   const stats = useSelector(selectPaymentStats);
   const saving = useSelector(selectPaymentSaving);
-  const { canManage } = useAuth();
+  const { can } = useAuth();
+  const canCreate = can(PERMISSIONS.PAYMENTS_CREATE);
+  const canEdit = can(PERMISSIONS.PAYMENTS_EDIT);
+  const canDelete = can(PERMISSIONS.PAYMENTS_DELETE);
 
   const { params, query, sort, setPage, setLimit, setSearch, setSort, setFilter } = useListQuery({
     sortBy: 'date',
@@ -143,7 +146,7 @@ export const Payments = () => {
       sortable: true,
       render: (payment) => <StatusBadge status={payment.status} meta={PAYMENT_STATUS_META} />,
     },
-    ...(canManage
+    ...(canEdit || canDelete
       ? [
           {
             key: 'actions',
@@ -163,7 +166,7 @@ export const Payments = () => {
                   />
                 )}
               >
-                <DropdownItem
+                {canEdit && <DropdownItem
                   icon={Pencil}
                   onClick={() => {
                     setEditing(payment);
@@ -171,10 +174,8 @@ export const Payments = () => {
                   }}
                 >
                   Edit payment
-                </DropdownItem>
-                <DropdownItem icon={Trash2} danger onClick={() => setConfirming(payment)}>
-                  Remove
-                </DropdownItem>
+                </DropdownItem>}
+                {canDelete && <DropdownItem icon={Trash2} danger onClick={() => setConfirming(payment)}>Remove</DropdownItem>}
               </Dropdown>
             ),
           },
@@ -190,7 +191,7 @@ export const Payments = () => {
         title="Payments"
         description="Every rupee received, matched to the invoice it settles."
         actions={
-          canManage && (
+          canCreate && (
             <Button
               icon={Plus}
               onClick={() => {
@@ -290,9 +291,9 @@ export const Payments = () => {
               icon={Wallet}
               title="No payments yet"
               description="Record your first payment against an invoice and the balance updates itself."
-              actionLabel={canManage ? 'Record a payment' : undefined}
+              actionLabel={canCreate ? 'Record a payment' : undefined}
               actionIcon={Plus}
-              onAction={canManage ? () => setFormOpen(true) : undefined}
+              onAction={canCreate ? () => setFormOpen(true) : undefined}
             />
           )
         }

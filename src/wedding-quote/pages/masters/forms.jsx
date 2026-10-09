@@ -114,7 +114,7 @@ export const AddOnForm = ({ record, onClose, onSaved, crud }) => {
   const [v, setV] = useState(() => ({ kind: 'free', title: '', text: '', badge: '', valueAmount: 0, priceEffect: 'none', priceAmount: 0, isActive: true, ...(record ?? {}) }));
   const { save, saving, errors } = useMasterSave({ crud, record, onSaved });
   const A = T.addOns;
-  // The price is text only, so the old add/subtract switch is always off.
+  // Inclusion is chosen per quote; the master only stores the reusable amount.
   const submit = () => save({ ...v, priceEffect: 'none', valueAmount: num(v.valueAmount), priceAmount: num(v.priceAmount), _id: undefined, createdAt: undefined, updatedAt: undefined, __v: undefined, sortOrder: undefined });
   return (
     <Shell title={record ? T.common.edit : A.add} onClose={onClose} onSave={submit} saving={saving}>

@@ -74,7 +74,7 @@ export const Register = () => {
     const result = await dispatch(registerUser(payload));
 
     if (registerUser.fulfilled.match(result)) {
-      // The first account is created as admin and signed in immediately.
+      // The first account is created as Super Admin and signed in immediately.
       if (result.payload.accessToken) {
         toast.success('Studio account created');
         navigate('/CRM/dashboard', { replace: true });
@@ -90,7 +90,7 @@ export const Register = () => {
       <header className="mb-8">
         <h1 className="text-3xl font-semibold text-ink-900">Create your account</h1>
         <p className="mt-2 text-md text-ink-500">
-          The first account becomes the studio admin with full access.
+          The first account becomes the studio Super Admin with full access.
         </p>
       </header>
 

@@ -94,8 +94,10 @@ export const buildPrintModel = (quote = {}, { dateStyle = 'plain', studio = {} }
           badge: t['addOn.badge'] ?? addOn.badge ?? '',
           title: t['addOn.title'] ?? addOn.title ?? '',
           text: t['addOn.text'] ?? addOn.text ?? '',
-          // Printed only; it never touches the totals.
-          price: t['addOn.price'] ?? (Number(addOn.priceAmount) > 0 ? `Add ${formatINR(addOn.priceAmount)}` : ''),
+          // The line makes the per-quote total choice clear on the exported quote.
+          price: t['addOn.price'] ?? (Number(addOn.priceAmount) > 0
+            ? `${addOn.includeInTotal ? '' : 'Extra '}${formatINR(addOn.priceAmount)}`
+            : ''),
         }
       : null,
     price: {
