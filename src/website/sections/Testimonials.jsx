@@ -20,7 +20,7 @@ export const Testimonials = () => {
   return (
     <section id="testimonials" aria-labelledby="testimonials-title" className="bg-site-paper-alt">
       <div className="mx-auto max-w-8xl px-5 py-20 sm:px-8 sm:py-24 lg:px-12 lg:py-28">
-        <SectionHeading title={testimonials.title} subtitle={testimonials.subtitle} align="center" />
+        <SectionHeading id="testimonials-title" title={testimonials.title} subtitle={testimonials.subtitle} align="center" />
 
         <ul className="mt-14 grid gap-6 md:grid-cols-3">
           {testimonials.items.map((item, i) => (

@@ -10,6 +10,7 @@ import { Reveal } from './Reveal';
  * visual one — sections need `h2` while the hero owns `h1`.
  */
 export const SectionHeading = ({
+  id,
   eyebrow,
   title,
   subtitle,
@@ -42,6 +43,7 @@ export const SectionHeading = ({
 
       <Reveal
         as={Tag}
+        id={id}
         delay={eyebrow ? 80 : 0}
         className={cn(
           'font-serif font-light text-site-h2',

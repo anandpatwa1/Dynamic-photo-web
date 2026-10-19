@@ -1,5 +1,6 @@
 import { MessageCircle, Phone, Send } from 'lucide-react';
 import { useSiteContent } from '../content/SiteContent';
+import { contactLinks } from '../utils/contactLinks';
 import { composePage } from '../navigation';
 
 /**
@@ -13,9 +14,9 @@ import { composePage } from '../navigation';
 export const MobileActionBar = () => {
   const content = useSiteContent();
   const contact = content?.contact;
-  const phone = contact?.phone?.replace(/[^\d+]/g, '');
-  // wa.me wants digits only, with the country code and no leading + or zeros.
-  const whatsapp = contact?.whatsapp?.replace(/\D/g, '').replace(/^0+/, '');
+  const links = contactLinks(contact);
+  const phone = links.call;
+  const whatsapp = links.whatsapp;
   const hasContactSection = composePage(content).some((entry) => entry.type === 'builtin' && entry.key === 'contact');
   const enquiryLabel = content?.settings?.enquiryLabel || 'Enquire';
 
@@ -30,13 +31,13 @@ export const MobileActionBar = () => {
       className="fixed inset-x-0 bottom-0 z-30 flex border-t border-site-line bg-site-paper/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur md:hidden"
     >
       {phone && (
-        <a href={`tel:${phone}`} className={`${base} text-site-ink`}>
+        <a href={phone} className={`${base} text-site-ink`}>
           <Phone className="h-4 w-4" aria-hidden="true" /> Call
         </a>
       )}
       {whatsapp && (
         <a
-          href={`https://wa.me/${whatsapp}`}
+          href={whatsapp}
           target="_blank"
           rel="noopener noreferrer"
           className={`${base} border-l border-site-line text-site-ink`}

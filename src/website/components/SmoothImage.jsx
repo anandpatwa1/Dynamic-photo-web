@@ -69,7 +69,9 @@ export const SmoothImage = ({
   bare = false,
   children,
 }) => {
+  const imageRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const src = asset?.url ?? srcProp;
   const srcSet = asset?.srcSet ?? srcSetProp;
@@ -140,6 +142,12 @@ export const SmoothImage = ({
 
   useEffect(() => () => clearTimeout(retryTimer.current), []);
 
+  useEffect(() => {
+    setLoaded(Boolean(imageRef.current?.complete && imageRef.current?.naturalWidth));
+    setFailed(false); setAttempt(0);
+    return () => clearTimeout(retryTimer.current);
+  }, [src]);
+
   const handleLoad = () => {
     setLoaded(true);
     freeSlot();
@@ -147,7 +155,7 @@ export const SmoothImage = ({
 
   const handleError = () => {
     freeSlot();
-    if (attempt >= MAX_RETRIES) return;
+    if (!gated || attempt >= MAX_RETRIES) { setFailed(true); return; }
     const delay = 1500 * 2 ** attempt + Math.random() * 1000;
     retryTimer.current = setTimeout(() => setAttempt((n) => n + 1), delay);
   };
@@ -170,6 +178,7 @@ export const SmoothImage = ({
           )}
           {ready && (
           <img
+            ref={imageRef}
             key={attempt}
             src={src}
             srcSet={srcSet}
@@ -211,6 +220,7 @@ export const SmoothImage = ({
         </div>
       )}
 
+      {failed && <div role="img" aria-label="Photograph unavailable" className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-site-paper-alt px-4 text-center text-site-muted"><Camera className="h-6 w-6" aria-hidden="true"/><span className="text-xs">Photograph unavailable</span></div>}
       {children}
     </div>
   );

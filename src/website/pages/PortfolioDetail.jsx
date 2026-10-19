@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TILE_RATIOS } from '../utils/portfolioView';
 import { ArrowLeft, ZoomIn } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { Reveal } from '../components/Reveal';
@@ -74,7 +75,7 @@ const VideoPlayer = ({ url, label = 'Watch video' }) => (
 );
 
 const Skeleton = () => (
-  <main className="min-h-screen bg-site-paper pb-20 pt-28 sm:pt-32" aria-busy="true" aria-label="Loading portfolio story">
+  <main id="main" className="min-h-screen bg-site-paper pb-20 pt-28 sm:pt-32" aria-busy="true" aria-label="Loading portfolio story">
     <div className="mx-auto max-w-8xl animate-pulse px-5 sm:px-8 lg:px-12">
       <div className="h-3 w-32 bg-site-paper-alt" />
       <div className="mt-8 h-3 w-24 bg-site-paper-alt" />
@@ -94,6 +95,7 @@ export const PortfolioDetail = () => {
     const controller = new AbortController();
     setItem(null);
     setError(false);
+    setCoverOpen(null);
     window.scrollTo(0, 0);
 
     publicApi
@@ -122,7 +124,7 @@ export const PortfolioDetail = () => {
 
   if (error) {
     return (
-      <main className="mx-auto min-h-screen max-w-3xl px-5 pb-20 pt-36 text-center sm:px-8">
+      <main id="main" className="mx-auto min-h-screen max-w-3xl px-5 pb-20 pt-36 text-center sm:px-8">
         <h1 className="font-serif text-site-h2 font-light text-site-ink">Story not found</h1>
         <Link to="/#portfolio" className="mt-8 inline-flex items-center gap-2 text-site-eyebrow uppercase text-site-ink underline">
           <ArrowLeft className="h-4 w-4" /> Back to portfolio
@@ -135,11 +137,14 @@ export const PortfolioDetail = () => {
 
   // An album with no photos and no film would only print a lonely heading.
   const albums = (item.albums ?? []).filter((album) => album.images?.length || album.videoUrl);
+  const coverRatio = TILE_RATIOS[item.span] || TILE_RATIOS.std;
+  const films = [...new Set([item.videoUrl, ...(item.videoUrls || [])].filter(Boolean))];
+  const hasFilms = films.length > 0 || item.videos?.length > 0;
   const looseGallery = item.gallery ?? [];
   const hasAnyPhotos = albums.some((album) => album.images?.length) || looseGallery.length > 0;
 
   return (
-    <main className="bg-site-paper pb-20 pt-28 sm:pt-32">
+    <main id="main" className="bg-site-paper pb-20 pt-28 sm:pt-32">
       <article className="mx-auto max-w-8xl px-5 sm:px-8 lg:px-12">
         <Link
           to="/#portfolio"
@@ -161,8 +166,8 @@ export const PortfolioDetail = () => {
           {item.description && <p className="mt-6 max-w-2xl whitespace-pre-line text-site-body">{item.description}</p>}
         </Reveal>
 
-        <Reveal delay={120} className="mx-auto mt-10 max-w-3xl sm:mt-12">
-          <ZoomTile image={item.coverImage} index={0} onOpen={setCoverOpen} ratio="4 / 3" imgClassName="object-contain" className="bg-transparent" sizes="(min-width: 768px) 768px, 100vw" priority />
+        <Reveal delay={120} className="mx-auto mt-8 sm:mt-12" style={{maxWidth: `min(768px, calc(65svh * ${coverRatio}))`}}>
+          <ZoomTile image={item.coverImage} index={0} onOpen={setCoverOpen} ratio={`${coverRatio} / 1`} imgClassName="object-contain" className="bg-transparent" sizes="(min-width: 768px) 768px, 100vw" priority />
         </Reveal>
         <Lightbox
           images={item.coverImage ? [item.coverImage] : []}
@@ -171,10 +176,10 @@ export const PortfolioDetail = () => {
           onIndexChange={setCoverOpen}
         />
 
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          {[...new Set([item.videoUrl, ...(item.videoUrls || [])].filter(Boolean))].map((url,i)=><VideoPlayer key={url} url={url} label={`Watch film ${i+1}`} />)}
+        {hasFilms && <section aria-label="Films" className="mt-10 grid gap-5 md:grid-cols-2">
+          {films.map((url,i)=><VideoPlayer key={url} url={url} label={`Watch film ${i+1}`} />)}
           {(item.videos || []).map((video,i)=><video key={video.url} controls playsInline preload="metadata" className="aspect-video w-full rounded-xl bg-black object-contain" src={video.url} aria-label={video.title || `Film ${i+1}`}/>)}
-        </div>
+        </section>}
 
         {albums.length > 0 ? (
           <div className="mt-16 grid gap-x-6 gap-y-16 md:grid-cols-2 sm:mt-20">
@@ -203,6 +208,11 @@ export const PortfolioDetail = () => {
         {!hasAnyPhotos && !item.videoUrl && !item.videoUrls?.length && !item.videos?.length && (
           <p className="mt-16 text-center text-site-body text-site-muted">More photographs from this story are coming soon.</p>
         )}
+        <section className="mt-14 border-t border-site-line pt-10 text-center sm:mt-20">
+          <h2 className="font-serif text-site-h2 text-site-ink">Let’s tell your story</h2>
+          <p className="mt-3 text-site-body text-site-muted">Tell us about your celebration and the moments that matter to you.</p>
+          <Link to="/#contact" className="mt-6 inline-flex min-h-11 items-center justify-center bg-site-ink px-7 py-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-site-accent">Enquire about your date</Link>
+        </section>
       </article>
     </main>
   );

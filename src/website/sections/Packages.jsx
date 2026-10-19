@@ -21,7 +21,7 @@ export const Packages = () => {
   return (
     <section id="packages" aria-labelledby="packages-title" className="bg-site-paper-alt">
       <div className="mx-auto max-w-8xl px-5 py-20 sm:px-8 sm:py-24 lg:px-12 lg:py-28">
-        <SectionHeading title={packages.title} subtitle={packages.subtitle} align="center" />
+        <SectionHeading id="packages-title" title={packages.title} subtitle={packages.subtitle} align="center" />
 
         {packages.pillars?.length > 0 && (
           <ul className="mt-14 grid grid-cols-1 gap-8 sm:grid-cols-3">

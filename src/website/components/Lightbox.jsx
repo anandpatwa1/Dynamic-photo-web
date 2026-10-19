@@ -18,11 +18,13 @@ export const Lightbox = ({ images, index, onClose, onIndexChange }) => {
   const image = open ? images[index] : null;
 
   const closeRef = useRef(null);
+  const imageRef = useRef(null);
   const prevRef = useRef(null);
   const nextRef = useRef(null);
   const opener = useRef(null);
   const touch = useRef(null);
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const go = useCallback(
     (step) => {
@@ -69,7 +71,8 @@ export const Lightbox = ({ images, index, onClose, onIndexChange }) => {
   // A new photo starts on the spinner; its neighbours download in advance.
   useEffect(() => {
     if (!open) return;
-    setLoaded(false);
+    setLoaded(Boolean(imageRef.current?.complete && imageRef.current?.naturalWidth));
+    setFailed(false);
     [index - 1, index + 1].forEach((neighbour) => {
       const target = images[(neighbour + count) % count];
       if (target?.url) new Image().src = target.url;
@@ -118,20 +121,23 @@ export const Lightbox = ({ images, index, onClose, onIndexChange }) => {
       </div>
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 sm:px-20">
-        {!loaded && (
+        {!loaded && !failed && (
           <span
             className="absolute h-8 w-8 animate-spin rounded-full border-2 border-white/25 border-t-white"
             aria-hidden="true"
           />
         )}
 
+        {failed && <p role="status" className="absolute px-5 text-center text-sm text-white/80">This photograph could not be loaded. Try another photo or close the viewer.</p>}
         <img
+          ref={imageRef}
           key={image.url}
           src={image.url}
           srcSet={image.srcSet}
           sizes="100vw"
           alt={image.alt || ''}
           onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
           onClick={stop}
           draggable={false}
           className={`max-h-full max-w-full select-none object-contain transition-opacity duration-300 ${

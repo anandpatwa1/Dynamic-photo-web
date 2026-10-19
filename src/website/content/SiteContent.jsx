@@ -1,69 +1,90 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { fixtures } from './fixtures';
 import { publicApi } from '../api/publicApi';
 
-const SiteContentContext = createContext(fixtures);
+const SiteContentContext = createContext(null);
 
-/**
- * Where every piece of site copy comes from.
- *
- * Deliberately not Redux. The site is read-mostly and needs one request; wiring
- * RTK in would add weight to the marketing bundle — the exact thing the
- * provider split in `crm/CrmRoot` was done to avoid. Plain `fetch` also keeps
- * the CRM's axios instance (and its auth-refresh interceptor) out of `/`.
- *
- * `fixtures` seeds the initial state so the page paints complete content on
- * first frame; the fetch then reconciles it with whatever the CMS holds. If the
- * API is unreachable the visitor still sees a finished site rather than a
- * skeleton — the right failure mode for a marketing page.
- */
-/**
- * Merges CMS content over the defaults.
- *
- * Per-key rather than a blanket spread, and skipping values the CMS has not
- * filled in yet. A studio that has written hero copy but not yet the about
- * section should see their hero live and the default about — not a heading
- * that has silently become an empty string. Arrays are only taken when they
- * have entries, for the same reason.
- */
-const mergeSection = (base, incoming) => {
-  if (incoming === undefined || incoming === null) return base;
-  if (Array.isArray(incoming)) return incoming.length > 0 ? incoming : base;
-  if (typeof incoming !== 'object') return incoming === '' ? base : incoming;
+const SECTION_FEATURES = Object.freeze({
+  portfolio: 'portfolio',
+  packages: 'website_packages',
+  testimonials: 'testimonials',
+});
 
-  const merged = { ...base };
-  Object.entries(incoming).forEach(([key, value]) => {
-    merged[key] = mergeSection(base?.[key], value);
+const applyFeatureAvailability = (site) => {
+  if (!site || typeof site !== 'object') return null;
+  const features = site.features && typeof site.features === 'object' ? site.features : {};
+  const sectionsEnabled = { ...(site.settings?.sectionsEnabled ?? {}) };
+
+  Object.entries(SECTION_FEATURES).forEach(([section, feature]) => {
+    if (features[feature] !== true) sectionsEnabled[section] = false;
   });
-  return merged;
+
+  return {
+    ...site,
+    settings: { ...(site.settings ?? {}), sectionsEnabled },
+  };
 };
 
+const updateDocumentMetadata = (site) => {
+  const title = site?.seo?.title || site?.brand?.name;
+  const description = site?.seo?.description || site?.brand?.tagline;
+  if (title) document.title = title;
+  if (description) document.querySelector('meta[name="description"]')?.setAttribute('content', description);
+};
+
+const LoadingPage = () => (
+  <main className="min-h-screen animate-pulse bg-site-paper" aria-busy="true" aria-label="Loading website">
+    <div className="h-20 border-b border-site-line/50" />
+    <div className="mx-auto max-w-8xl px-5 pt-28 sm:px-8 lg:px-12">
+      <div className="h-3 w-28 bg-site-paper-alt" />
+      <div className="mt-7 h-14 w-4/5 max-w-2xl bg-site-paper-alt" />
+      <div className="mt-5 h-4 w-3/5 max-w-xl bg-site-paper-alt" />
+    </div>
+  </main>
+);
+
+const UnavailablePage = () => (
+  <main className="grid min-h-screen place-items-center bg-site-paper px-6 text-center text-site-ink">
+    <div>
+      <p className="text-site-eyebrow font-medium uppercase text-site-accent">Portfolio</p>
+      <h1 className="mt-4 font-serif text-site-h2 font-light">This website is temporarily unavailable.</h1>
+      <button type="button" onClick={() => window.location.reload()} className="mt-7 min-h-11 bg-site-ink px-7 text-site-eyebrow font-medium uppercase text-white">
+        Try again
+      </button>
+    </div>
+  </main>
+);
+
 export const SiteContentProvider = ({ children }) => {
-  const [content, setContent] = useState(fixtures);
+  const [state, setState] = useState({ status: 'loading', content: null });
 
   useEffect(() => {
     const controller = new AbortController();
+    setState({ status: 'loading', content: null });
 
-    publicApi
-      .getSite(controller.signal)
+    publicApi.getSite(controller.signal)
       .then((payload) => {
-        const remote = payload?.data?.site;
-        if (remote) setContent((prev) => mergeSection(prev, remote));
+        const content = applyFeatureAvailability(payload?.data?.site);
+        if (!content?.brand) throw new Error('The public site payload is incomplete');
+        updateDocumentMetadata(content);
+        setState({ status: 'ready', content });
       })
-      .catch(() => {
-        /* Defaults already rendered. Nothing to recover from. */
+      .catch((error) => {
+        if (error.name !== 'AbortError') setState({ status: 'error', content: null });
       });
 
     return () => controller.abort();
   }, []);
 
-  return <SiteContentContext.Provider value={content}>{children}</SiteContentContext.Provider>;
+  if (state.status === 'loading') return <LoadingPage />;
+  if (state.status === 'error') return <UnavailablePage />;
+  return <SiteContentContext.Provider value={state.content}>{children}</SiteContentContext.Provider>;
 };
 
 export const useSiteContent = () => useContext(SiteContentContext);
 
-/** Convenience reader for a single top-level section. */
 export const useSection = (key) => {
   const content = useSiteContent();
   return useMemo(() => content?.[key], [content, key]);
 };
+
+export const useBusinessFeature = (feature) => useSiteContent()?.features?.[feature] === true;

@@ -146,6 +146,7 @@ export default {
          * clamp() ramp does not.
          */
         'site-hero': ['clamp(2.75rem, 7vw, 6.5rem)', { lineHeight: '0.98', letterSpacing: '-0.02em' }],
+        'site-h1': ['clamp(2.4rem, 5.5vw, 5rem)', { lineHeight: '1.02', letterSpacing: '-0.02em' }],
         'site-h2': ['clamp(2rem, 4.2vw, 3.75rem)', { lineHeight: '1.08', letterSpacing: '-0.015em' }],
         'site-h3': ['clamp(1.5rem, 2.6vw, 2.25rem)', { lineHeight: '1.15', letterSpacing: '-0.01em' }],
         'site-stat': ['clamp(2.25rem, 4vw, 3.25rem)', { lineHeight: '1', letterSpacing: '-0.02em' }],
