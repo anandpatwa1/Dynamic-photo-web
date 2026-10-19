@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Crop, Move, ZoomIn } from 'lucide-react';
+import { Crop, Loader2, Move, ZoomIn } from 'lucide-react';
 import { Button, Modal } from '@/components/ui';
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
@@ -65,17 +65,21 @@ export const ImageCropModal = ({ file, kind, aspect: requestedAspect, outputWidt
     setZoom(1);
     setPosition({ x: 0.5, y: 0.5 });
     if (!file) return undefined;
+    let active = true;
     const url = URL.createObjectURL(file);
     const nextImage = new Image();
-    nextImage.onload = () => setImage(nextImage);
-    nextImage.onerror = () => setError('This file could not be opened. Choose a JPG, PNG or WEBP image.');
+    nextImage.onload = () => { if (active) setImage(nextImage); };
+    nextImage.onerror = () => { if (active) setError('This file could not be opened. Choose a JPG, PNG or WEBP image.'); };
     nextImage.src = url;
-    return () => URL.revokeObjectURL(url);
+    return () => { active = false; URL.revokeObjectURL(url); };
   }, [file]);
 
   useEffect(() => {
     if (!image) return undefined;
-    const frame = requestAnimationFrame(() => drawCrop(canvasRef.current, image, aspect, zoom, position, 1000));
+    const frame = requestAnimationFrame(() => {
+      try { drawCrop(canvasRef.current, image, aspect, zoom, position, 1000); }
+      catch { setError('Could not display this photo. Please choose another image.'); }
+    });
     return () => cancelAnimationFrame(frame);
   }, [image, aspect, zoom, position]);
 
@@ -101,6 +105,7 @@ export const ImageCropModal = ({ file, kind, aspect: requestedAspect, outputWidt
 
   const save = async () => {
     if (!image) return;
+    setError('');
     setSaving(true);
     try {
       const canvas = document.createElement('canvas');
@@ -120,24 +125,26 @@ export const ImageCropModal = ({ file, kind, aspect: requestedAspect, outputWidt
       onClose={saving ? undefined : onClose}
       closeOnBackdrop={!saving}
       size="lg"
+      layer={60}
       title={isProfile ? 'Crop profile photo' : 'Crop cover photo'}
       description={isProfile ? 'Keep your face inside the square frame.' : 'Drag or use the sliders to choose the exact part of your image.'}
-      footer={<><Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button><Button icon={Crop} loading={saving} disabled={!image} onClick={save}>Use this crop</Button></>}
+      footer={<><Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button><Button icon={Crop} loading={saving} disabled={!image} onClick={save}>{saving ? 'Processing image…' : 'Use this crop'}</Button></>}
     >
       <div className="space-y-5">
         {error&&<p role="alert" className="text-danger-600">{error}</p>}
-        <div className="overflow-hidden rounded-2xl bg-ink-950 shadow-inner" style={{ aspectRatio: String(aspect) }}>
+        {saving && <p role="status" className="flex items-center gap-2 text-sm text-ink-700"><Loader2 className="h-4 w-4 animate-spin"/>Processing and uploading your image. Please wait…</p>}
+        <div className="relative mx-auto overflow-hidden rounded-2xl bg-ink-950 shadow-inner" style={{ aspectRatio: String(aspect), width: `min(100%, calc(45vh * ${aspect}))` }}>
           {image ? (
             <canvas
               ref={canvasRef}
-              className="h-full w-full cursor-move touch-none object-cover"
+              className="absolute inset-0 h-full w-full cursor-move touch-none object-cover"
               onPointerDown={startDrag}
               onPointerMove={drag}
               onPointerUp={() => { dragRef.current = null; }}
               onPointerCancel={() => { dragRef.current = null; }}
               aria-label="Photo crop preview. Drag to reposition."
             />
-          ) : <div className="grid h-full place-items-center text-sm text-white/60">Preparing photo…</div>}
+          ) : <div role="status" className="absolute inset-0 grid place-items-center text-sm text-white/80">{error ? 'Preview unavailable' : 'Preparing photo…'}</div>}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">

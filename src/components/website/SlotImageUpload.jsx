@@ -79,7 +79,7 @@ export const SlotImageUpload = ({
 
       if (!valid) {
         setErrors(problems);
-        return;
+        return false;
       }
 
       // Alt text is schema-required server-side; catching it here avoids a
@@ -92,10 +92,12 @@ export const SlotImageUpload = ({
       setBusy(true);
       try {
         await onUpload({ file, slot: slotId, alt: alt.trim() });
+        return true;
       } catch (error) {
         const message =
           error?.response?.data?.message ?? error.message ?? 'That upload did not go through.';
         setErrors([message]);
+        if (cropped) throw new Error(message);
       } finally {
         setBusy(false);
         if (inputRef.current) inputRef.current.value = '';
@@ -112,7 +114,7 @@ export const SlotImageUpload = ({
 
   return (
     <div className={cn('space-y-3', className)}>
-      <ImageCropModal file={cropFile} kind="portfolio" aspect={slot.aspect} outputWidth={slot.width} onClose={()=>{setCropFile(null);if(inputRef.current)inputRef.current.value=''}} onConfirm={async file=>{await handleFile(file,true);setCropFile(null)}}/>
+      <ImageCropModal file={cropFile} kind="portfolio" aspect={slot.aspect} outputWidth={slot.width} onClose={()=>{setCropFile(null);if(inputRef.current)inputRef.current.value=''}} onConfirm={async file=>{const uploaded = await handleFile(file,true);if (!uploaded) throw new Error('Could not upload this image. Check its dimensions and try again.');setCropFile(null)}}/>
       {label && <p className="text-sm font-medium text-ink-800">{label}</p>}
 
       <div

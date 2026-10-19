@@ -13,6 +13,9 @@ const SIZES = {
   '2xl': 'max-w-6xl',
 };
 
+const openPanels = [];
+let originalBodyOverflow;
+
 /**
  * Centered dialog rendered in a portal. Closes on Escape and backdrop click
  * (both suppressible), and locks body scroll while open.
@@ -29,6 +32,7 @@ export const Modal = ({
   closeOnBackdrop = true,
   showClose = true,
   className,
+  layer = 50,
 }) => {
   const panelRef = useRef(null);
 
@@ -56,6 +60,7 @@ export const Modal = ({
     // otherwise focus falls to the top of the document and keyboard users
     // lose their place in the list they opened the dialog from.
     const previouslyFocused = document.activeElement;
+    openPanels.push(panelRef);
 
     const focusable = () =>
       Array.from(
@@ -65,6 +70,7 @@ export const Modal = ({
       ).filter((element) => element.offsetParent !== null);
 
     const onKeyDown = (event) => {
+      if (openPanels[openPanels.length - 1] !== panelRef) return;
       if (event.key === 'Escape') {
         onCloseRef.current?.();
         return;
@@ -92,11 +98,12 @@ export const Modal = ({
 
     document.addEventListener('keydown', onKeyDown);
 
-    const previousOverflow = document.body.style.overflow;
+    if (openPanels.length === 1) originalBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     // Move focus into the dialog once it has mounted.
     const timer = setTimeout(() => {
+      if (openPanels[openPanels.length - 1] !== panelRef) return;
       const [firstElement] = focusable();
       (firstElement ?? panelRef.current)?.focus();
     }, 0);
@@ -104,7 +111,9 @@ export const Modal = ({
     return () => {
       clearTimeout(timer);
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      const panelIndex = openPanels.indexOf(panelRef);
+      if (panelIndex !== -1) openPanels.splice(panelIndex, 1);
+      if (!openPanels.length) document.body.style.overflow = originalBodyOverflow;
       previouslyFocused?.focus?.();
     };
     // Only `open` — see the note on onCloseRef above.
@@ -113,7 +122,7 @@ export const Modal = ({
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6">
+        <div style={{ zIndex: layer }} className="fixed inset-0 flex items-end justify-center p-0 sm:items-center sm:p-6">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -142,7 +151,7 @@ export const Modal = ({
             )}
           >
             {(title || showClose) && (
-              <header className="flex items-start justify-between gap-4 border-b border-ink-200/70 px-4 py-4 sm:px-6 sm:py-5">
+              <header className="flex shrink-0 items-start justify-between gap-4 border-b border-ink-200/70 px-4 py-4 sm:px-6 sm:py-5">
                 <div className="min-w-0">
                   {title && <h2 className="text-lg font-semibold text-ink-900">{title}</h2>}
                   {description && <p className="mt-1 text-sm text-ink-500">{description}</p>}
@@ -164,10 +173,10 @@ export const Modal = ({
               </header>
             )}
 
-            <div className="scrollbar-slim flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">{children}</div>
+            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">{children}</div>
 
             {footer && (
-              <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-ink-200/70 bg-ink-50/60 px-4 py-3.5 sm:px-6 sm:py-4">
+              <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-ink-200/70 bg-ink-50/60 px-4 py-3.5 sm:px-6 sm:py-4">
                 {footer}
               </footer>
             )}
