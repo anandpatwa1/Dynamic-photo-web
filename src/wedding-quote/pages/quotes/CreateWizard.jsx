@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus2, Check, Copy, ListChecks, Plus, RotateCcw, Sparkles, Star, Trash2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Badge, Button, Input, PageLoader, SearchInput, SegmentedControl, Select, Switch, Textarea } from '@/components/ui';
@@ -42,6 +42,8 @@ const useMasters = () => {
 
 const WizardInner = () => {
   const navigate = useNavigate();
+  const [searchParams]=useSearchParams();
+  const initialTheme=searchParams.get('theme');
   const { id: editId } = useParams();
   const perms = useWqPermissions();
   const [state, dispatch] = useReducer(wizardReducer, undefined, () => initialWizardState());
@@ -67,6 +69,7 @@ const WizardInner = () => {
     const s = stateRef.current;
     if (!s.days.length) return null;
     const body = wizardToBody(s, { includeLines: !applySet });
+    if (!s.quoteId && initialTheme) body.themeId=initialTheme;
     if (applySet) body.deliverables = { setId: s.setId, applySet: true };
     setSaving(true);
     try {

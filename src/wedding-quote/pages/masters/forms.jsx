@@ -110,12 +110,12 @@ export const SetForm = ({ record, perms, onClose, onSaved, crud }) => {
 };
 
 // ---------------------------------------------------------------- Add-ons
-export const AddOnForm = ({ record, onClose, onSaved, crud }) => {
-  const [v, setV] = useState(() => ({ kind: 'free', title: '', text: '', badge: '', valueAmount: 0, priceEffect: 'none', priceAmount: 0, isActive: true, ...(record ?? {}) }));
+export const AddOnForm = ({ record, perms, onClose, onSaved, crud }) => {
+  const [v, setV] = useState(() => ({ kind: 'free', title: '', text: '', badge: '', valueAmount: 0, priceEffect: 'none', priceAmount: 0, costPrice: 0, isActive: true, ...(record ?? {}) }));
   const { save, saving, errors } = useMasterSave({ crud, record, onSaved });
   const A = T.addOns;
   // Inclusion is chosen per quote; the master only stores the reusable amount.
-  const submit = () => save({ ...v, priceEffect: 'none', valueAmount: num(v.valueAmount), priceAmount: num(v.priceAmount), _id: undefined, createdAt: undefined, updatedAt: undefined, __v: undefined, sortOrder: undefined });
+  const submit = () => save({ ...v, priceEffect: 'none', valueAmount: num(v.valueAmount), priceAmount: num(v.priceAmount), costPrice: perms.viewCosting ? num(v.costPrice) : undefined, _id: undefined, createdAt: undefined, updatedAt: undefined, __v: undefined, sortOrder: undefined });
   return (
     <Shell title={record ? T.common.edit : A.add} onClose={onClose} onSave={submit} saving={saving}>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -125,6 +125,7 @@ export const AddOnForm = ({ record, onClose, onSaved, crud }) => {
       <Input label={A.titleField} required value={v.title} error={errors.title} onChange={(e) => setV({ ...v, title: e.target.value })} placeholder="Free Pre-Wedding" />
       <Textarea label={A.text} rows={2} value={v.text} onChange={(e) => setV({ ...v, text: e.target.value })} placeholder="Free pre-wedding worth ₹25,000" />
       <div className="grid gap-3 sm:grid-cols-2">
+        {perms.viewCosting && <Input label={T.common.costPrice} prefix="₹" inputMode="numeric" hint={A.costHint} error={errors.costPrice} value={v.costPrice} onChange={(e) => setV({ ...v, costPrice: e.target.value })} />}
         <Input label={A.valueAmount} prefix="₹" inputMode="numeric" value={v.valueAmount} onChange={(e) => setV({ ...v, valueAmount: e.target.value })} />
         <Input label={A.priceAmount} prefix="₹" inputMode="numeric" hint={A.priceHint} error={errors.priceAmount} value={v.priceAmount} onChange={(e) => setV({ ...v, priceAmount: e.target.value })} />
       </div>

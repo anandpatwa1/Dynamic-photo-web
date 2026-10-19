@@ -1,8 +1,11 @@
+import { groupBookings } from '../../utils/bookingGroups';
+import { Link, useParams } from 'react-router-dom';
+import { BookingNav } from './BookingNav';
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Palette, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
-  Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Input, PageHeader, Select, Skeleton,
+  Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Input, PageHeader, Select,
 } from '@/components/ui';
 import { cn } from '@/utils/cn';
 import { CRM } from '@/routes/paths';
@@ -10,7 +13,7 @@ import { Calendar } from '../../components/Calendar';
 import { PermissionGate } from '../../components/PermissionGate';
 import { useBookingCalendar } from '../../hooks/useBookingCalendar';
 import { useWqPermissions } from '../../hooks/useWqPermissions';
-import { wqBookingApi, wqSettingsApi } from '../../api/wqApi';
+import { wqBookingApi } from '../../api/wqApi';
 import { formatDate } from '../../utils/engine/dates';
 import { T } from '../../constants/strings';
 
@@ -30,20 +33,21 @@ const BookingCalendarInner = () => {
   const perms = useWqPermissions();
   const canWrite = perms.createQuote || perms.editQuote || perms.manageMasters;
   const [view, setView] = useState({ month: now.getMonth() + 1, year: now.getFullYear() });
-  const initialDate = { day: now.getDate(), month: now.getMonth() + 1, year: now.getFullYear() };
-  const [activeDate, setActiveDate] = useState(initialDate);
-  const [selectedDates, setSelectedDates] = useState([initialDate]);
+  const { typeKey } = useParams();
+  const [activeDate, setActiveDate] = useState(null);
+  const [selectedDates, setSelectedDates] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const calendar = useBookingCalendar(view, refreshKey);
+  const [listMode, setListMode] = useState(false);
+  const source = useBookingCalendar(view, refreshKey, listMode ? 'all' : 'month');
+  const calendar = { ...source, bookings: typeKey ? source.bookings.filter(b=>b.typeKey===typeKey) : source.bookings };
+  const activeType = source.bookingTypes.find(t=>t.key===typeKey);
+  useEffect(()=>{setActiveDate(null);setSelectedDates([]);setEditingId(null);setForm(emptyForm(typeKey));},[typeKey]);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [typeDraft, setTypeDraft] = useState([]);
-  const [savingTypes, setSavingTypes] = useState(false);
 
-  useEffect(() => setTypeDraft(calendar.bookingTypes.map((type) => ({ ...type }))), [calendar.bookingTypes]);
   useEffect(() => {
     if (!calendar.bookingTypes.length) return;
     if (!calendar.bookingTypes.some((type) => type.key === form.typeKey)) {
@@ -51,7 +55,7 @@ const BookingCalendarInner = () => {
     }
   }, [calendar.bookingTypes, form.typeKey]);
 
-  const activeKey = keyOf(activeDate);
+  const activeKey = activeDate ? keyOf(activeDate) : null;
   const dayBookings = useMemo(
     () => calendar.bookings.filter((booking) => booking.dateKey === activeKey),
     [calendar.bookings, activeKey],
@@ -70,21 +74,21 @@ const BookingCalendarInner = () => {
       return [...current, date].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
     });
     setEditingId(null);
-    setForm(emptyForm(calendar.bookingTypes[0]?.key));
+    setForm(emptyForm(typeKey || calendar.bookingTypes[0]?.key));
   };
 
   const changeView = (next) => {
     setView(next);
-    setActiveDate({ day: 1, month: next.month, year: next.year });
+    setActiveDate(null);
     setEditingId(null);
-    setForm(emptyForm(calendar.bookingTypes[0]?.key));
+    setForm(emptyForm(typeKey || calendar.bookingTypes[0]?.key));
   };
 
   const focusDate = (date) => {
     setActiveDate(date);
     setView({ month: date.month, year: date.year });
     setEditingId(null);
-    setForm(emptyForm(calendar.bookingTypes[0]?.key));
+    setForm(emptyForm(typeKey || calendar.bookingTypes[0]?.key));
   };
 
   const removeSelectedDate = (date) => {
@@ -103,6 +107,7 @@ const BookingCalendarInner = () => {
       else await wqBookingApi.createMany({ dateKeys: selectedDates.map(keyOf), ...details });
       toast.success(editingId ? 'Booking updated' : `Booking added to ${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''}`);
       setEditingId(null);
+      setSelectedDates([]);
       setForm(emptyForm(form.typeKey));
       reload();
     } catch (error) {
@@ -136,25 +141,25 @@ const BookingCalendarInner = () => {
     }
   };
 
-  const saveTypes = async () => {
-    setSavingTypes(true);
-    try {
-      await wqSettingsApi.update({ bookingTypes: typeDraft });
-      toast.success(T.common.saved);
-      reload();
-    } catch (error) {
-      toast.error(error?.response?.data?.message ?? 'Colours could not be saved');
-    } finally {
-      setSavingTypes(false);
-    }
-  };
-
   return (
     <>
-      <PageHeader title={B.title} description={B.description}
-        breadcrumbs={[{ label: T.module, to: CRM.wqQuotes }, { label: B.title }]} />
+      <PageHeader title={activeType ? `${activeType.name} bookings` : B.title} description="Manage bookings by date or open an individual booking type’s calendar."
+        breadcrumbs={[{ label: 'Booking Calendar', to: CRM.wqBookings }, ...(activeType ? [{ label: activeType.name }] : [])]} />
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+      <BookingNav/>
+      <div className="mb-5 flex gap-2" aria-label="Calendar display">
+        <Button variant={listMode ? 'secondary' : 'primary'} aria-pressed={!listMode} onClick={()=>setListMode(false)}>Calendar view</Button>
+        <Button variant={listMode ? 'primary' : 'secondary'} aria-pressed={listMode} onClick={()=>setListMode(true)}>List view — all bookings</Button>
+      </div>
+      {listMode && <Card><CardHeader><CardTitle>{activeType?.name || 'All booked events'} — all dates</CardTitle></CardHeader><CardBody className="space-y-3">
+        {calendar.loading ? <p role="status">Loading all bookings…</p> : calendar.error ? <p role="alert">{calendar.error}</p> : <>
+          {!calendar.bookings.length && <p>No booked events.</p>}
+          {groupBookings(calendar.bookings).map(b=><button type="button" key={b._id} className="flex w-full items-center gap-3 rounded-xl border p-3 text-left" onClick={()=>{const [year,month,day]=b.dateKey.split('-').map(Number);focusDate({year,month,day});setListMode(false);}}><span className="h-4 w-4 shrink-0 rounded-full" style={{background:b.resolvedColor}}/><div><p className="font-semibold">{b.title||b.typeName}</p><time dateTime={b.dateKey} className="text-sm text-ink-500">{b.dateLabel} · {b.typeName}{b.dates.length > 1 ? ` · ${b.dates.length} dates` : ''}</time></div></button>)}
+        </>}
+      </CardBody></Card>}
+
+      {typeKey && !activeType && !calendar.loading && <p role="alert">Booking type not found.</p>}
+      {!listMode && <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
         <div className="contents xl:block xl:space-y-5">
           <Card>
             <CardBody className="relative">
@@ -164,46 +169,26 @@ const BookingCalendarInner = () => {
               {calendar.error && <p className="mt-3 text-sm text-danger-600">{calendar.error}</p>}
               <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-ink-100 pt-4 text-xs text-ink-500">
                 {calendar.bookingTypes.map((type) => (
-                  <span key={type.key} className="inline-flex items-center gap-1.5">
+                  <Link key={type.key} to={`${CRM.wqBookings}/type/${type.key}`} className="inline-flex items-center gap-1.5 underline">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: type.color }} />{type.name}
-                  </span>
+                  </Link>
                 ))}
                 {calendar.showFestivals && <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />{B.festivals}</span>}
               </div>
             </CardBody>
           </Card>
 
-          {perms.manageMasters && (
-            <Card className="order-3">
-              <CardHeader>
-                <div><CardTitle>{B.coloursTitle}</CardTitle><p className="mt-1 text-sm text-ink-500">{B.coloursHint}</p></div>
-                <Palette className="h-5 w-5 text-brand-500" />
-              </CardHeader>
-              <CardBody>
-                {!typeDraft.length ? <Skeleton className="h-28" /> : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {typeDraft.map((type, index) => (
-                      <div key={type.key} className="flex items-center gap-2 rounded-xl bg-ink-50 p-2.5">
-                        <input type="color" value={type.color} aria-label={`${type.name} colour`}
-                          onChange={(event) => setTypeDraft(typeDraft.map((item, itemIndex) => itemIndex === index ? { ...item, color: event.target.value.toUpperCase() } : item))}
-                          className="h-9 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0" />
-                        <Input value={type.name} aria-label={`${type.key} name`} wrapperClassName="min-w-0 flex-1"
-                          onChange={(event) => setTypeDraft(typeDraft.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <Button className="mt-4" size="sm" loading={savingTypes} onClick={saveTypes}>{B.saveColours}</Button>
-              </CardBody>
-            </Card>
-          )}
+          <Card><CardHeader><CardTitle>{activeType?.name || 'All bookings'} — date-wise list</CardTitle></CardHeader><CardBody className="space-y-2">
+            {!calendar.bookings.length && <p className="text-sm text-ink-500">No bookings in this month.</p>}
+            {groupBookings(calendar.bookings).map(b=><button type="button" key={b._id} onClick={()=>{const [year,month,day]=b.dateKey.split('-').map(Number);focusDate({year,month,day});}} className="flex w-full items-center gap-3 rounded-xl border p-3 text-left"><span className="h-4 w-4 shrink-0 rounded-full" style={{background:b.resolvedColor}}/><div><p className="font-semibold">{b.title||b.typeName}</p><p className="text-sm text-ink-500">{b.dateLabel} · {b.typeName}{b.dates.length > 1 ? ` · ${b.dates.length} dates` : ''}</p></div></button>)}
+          </CardBody></Card>
         </div>
 
         <Card className="order-2 xl:order-none xl:sticky xl:top-20">
           <CardHeader>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{B.selectedDate}</p>
-              <CardTitle className="mt-1">{formatDate(activeDate, 'plain', activeDate.year)}</CardTitle>
+              <CardTitle className="mt-1">{activeDate ? formatDate(activeDate, 'plain', activeDate.year) : 'Choose a date'}</CardTitle>
             </div>
             <span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-600">
               {dayBookings.length === 1 ? B.oneBooking : B.count.replace('{n}', dayBookings.length)}
@@ -272,7 +257,7 @@ const BookingCalendarInner = () => {
                   <p className="font-semibold text-ink-900">{editingId ? B.update : B.add}</p>
                   {editingId && <Button size="xs" variant="ghost" onClick={() => { setEditingId(null); setForm(emptyForm(form.typeKey)); }}>{T.common.cancel}</Button>}
                 </div>
-                <Select label={B.type} value={form.typeKey} options={calendar.bookingTypes.map((type) => ({ value: type.key, label: type.name }))}
+                <Select label={B.type} value={form.typeKey} options={calendar.bookingTypes.filter(type=>!typeKey||type.key===typeKey).map((type) => ({ value: type.key, label: type.name }))}
                   onChange={(event) => setForm({ ...form, typeKey: event.target.value, color: '' })} />
                 <Input label={B.bookingTitle} optional hint={B.bookingTitleHint} value={form.title} aria-label={B.bookingTitle}
                   onChange={(event) => setForm({ ...form, title: event.target.value })} />
@@ -280,12 +265,12 @@ const BookingCalendarInner = () => {
                   <p className="mb-2 text-sm font-medium text-ink-700">{B.colour}</p>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => setForm({ ...form, color: '' })}
-                      className={cn('flex h-9 items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-medium ring-1 ring-inset', !form.color ? 'ring-2 ring-brand-500 text-brand-700' : 'ring-ink-200 text-ink-600')}>
+                      className={cn('flex h-9 items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-medium ring-1 ring-inset', !form.color ? 'ring-2 ring-slate-600 text-brand-700' : 'ring-ink-200 text-ink-600')}>
                       {!form.color && <Check className="h-3.5 w-3.5" />}{B.useTypeColour}
                     </button>
                     {QUICK_COLORS.map((color) => (
                       <button key={color} type="button" aria-label={`Use ${color}`} onClick={() => setForm({ ...form, color })}
-                        className={cn('grid h-9 w-9 place-items-center rounded-lg ring-offset-2', form.color === color && 'ring-2 ring-brand-500')}
+                        className={cn('grid h-9 w-9 place-items-center rounded-lg ring-offset-2', form.color === color && 'ring-2 ring-slate-600')}
                         style={{ backgroundColor: color }}>
                         {form.color === color && <Check className="h-4 w-4 text-white drop-shadow" />}
                       </button>
@@ -300,7 +285,7 @@ const BookingCalendarInner = () => {
             )}
           </CardBody>
         </Card>
-      </div>
+      </div>}
 
       <ConfirmDialog open={Boolean(deleteItem)} onClose={() => setDeleteItem(null)} onConfirm={remove}
         loading={deleting} title="Delete this booking?" message={deleteItem?.title || deleteItem?.typeName} />

@@ -175,7 +175,7 @@ export const wizardReducer = (state, action) => {
       return {
         ...state,
         addOnId: action.addOnId,
-        includeAddOnInTotal: action.addOnId === state.addOnId ? state.includeAddOnInTotal : false,
+        includeAddOnInTotal: action.addOnId === state.addOnId ? state.includeAddOnInTotal : Boolean(action.addOnId),
       };
     case 'setIncludeAddOnInTotal':
       return { ...state, includeAddOnInTotal: Boolean(action.value) };

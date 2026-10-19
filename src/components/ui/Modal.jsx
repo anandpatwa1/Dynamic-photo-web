@@ -24,6 +24,7 @@ export const Modal = ({
   description,
   size = 'md',
   footer,
+  headerActions,
   children,
   closeOnBackdrop = true,
   showClose = true,
@@ -146,6 +147,8 @@ export const Modal = ({
                   {title && <h2 className="text-lg font-semibold text-ink-900">{title}</h2>}
                   {description && <p className="mt-1 text-sm text-ink-500">{description}</p>}
                 </div>
+                <div className="flex shrink-0 items-center gap-2">
+                {headerActions}
                 {showClose && (
                   <Button
                     variant="ghost"
@@ -157,6 +160,7 @@ export const Modal = ({
                     className="-mr-1.5 -mt-0.5 shrink-0"
                   />
                 )}
+                </div>
               </header>
             )}
 

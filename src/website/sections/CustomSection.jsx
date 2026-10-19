@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Reveal } from '../components/Reveal';
 import { SectionHeading } from '../components/SectionHeading';
@@ -8,8 +9,8 @@ import { VideoEmbed } from '../components/VideoEmbed';
 // Spelled out in full so Tailwind can see every class it must generate.
 const LAPTOP_COLUMNS = { 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4' };
 
-/** On a phone only this many show up front; the rest wait behind one tap. */
-const PHONE_PREVIEW = 6;
+const PHONE_BATCH = 4;
+const DESKTOP_BATCH = 6;
 
 /**
  * A section the studio built in the admin: a heading and a grid of videos.
@@ -17,11 +18,15 @@ const PHONE_PREVIEW = 6;
  * tablet, one on a phone.
  */
 export const CustomSection = ({ section, tint = false }) => {
-  const [showAll, setShowAll] = useState(false);
+  const [page, setPage] = useState(1);
   const videos = section?.videos ?? [];
   if (videos.length === 0) return null;
 
-  const hiddenOnPhone = videos.length > PHONE_PREVIEW && !showAll;
+  const phoneVisible = page * PHONE_BATCH;
+  const desktopVisible = page * DESKTOP_BATCH;
+  const phoneHasMore = videos.length > phoneVisible;
+  const desktopHasMore = videos.length > desktopVisible;
+  const hasPlaylistLink = section.videoSource === 'youtube_playlist' && Boolean(section.playlistUrl);
 
   return (
     <section id={section.slug} aria-label={section.title} className={tint ? 'bg-site-paper-alt' : 'bg-site-paper'}>
@@ -39,7 +44,10 @@ export const CustomSection = ({ section, tint = false }) => {
               as="li"
               key={video.id ?? `${video.url}-${index}`}
               delay={(index % 3) * 80}
-              className={cn(index >= PHONE_PREVIEW && hiddenOnPhone && 'hidden sm:block')}
+              className={cn(
+                index >= desktopVisible && 'hidden',
+                index >= phoneVisible && index < desktopVisible && 'hidden sm:block',
+              )}
             >
               <VideoEmbed
                 url={video.url}
@@ -55,13 +63,41 @@ export const CustomSection = ({ section, tint = false }) => {
           ))}
         </ul>
 
-        {hiddenOnPhone && (
-          <div className="mt-10 flex justify-center sm:hidden">
-            <SiteButton variant="ghost" onClick={() => setShowAll(true)}>
-              Show all {videos.length} videos
+        <div
+          className={cn(
+            'mt-10 flex flex-wrap justify-center gap-3 sm:mt-12',
+            !phoneHasMore && !hasPlaylistLink && 'hidden',
+            !desktopHasMore && !hasPlaylistLink && 'sm:hidden',
+          )}
+        >
+          {phoneHasMore && (
+            <div className="sm:hidden">
+              <SiteButton variant="ghost" onClick={() => setPage((current) => current + 1)}>
+                Load more videos
+              </SiteButton>
+            </div>
+          )}
+          {desktopHasMore && (
+            <div className="hidden sm:block">
+              <SiteButton variant="ghost" onClick={() => setPage((current) => current + 1)}>
+                Load more videos
+              </SiteButton>
+            </div>
+          )}
+          {hasPlaylistLink && (
+            <SiteButton
+              href={section.playlistUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="ghost"
+              withArrow={false}
+            >
+              <span className="inline-flex items-center gap-2">
+                See more on YouTube <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              </span>
             </SiteButton>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </section>
   );

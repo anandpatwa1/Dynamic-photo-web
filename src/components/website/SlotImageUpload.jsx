@@ -1,3 +1,4 @@
+import { ImageCropModal } from '@/components/profile/ImageCropModal';
 import { useCallback, useId, useRef, useState } from 'react';
 import { AlertTriangle, ImageUp, Loader2, Trash2 } from 'lucide-react';
 import { IMAGE_SLOTS, formatBytes, validateImage } from '@/constants/imageSlots';
@@ -46,6 +47,8 @@ export const SlotImageUpload = ({
   disabled = false,
 }) => {
   const slot = IMAGE_SLOTS[slotId];
+  const editableCrop = (slotId.startsWith('portfolioCover') || ['galleryPortrait','galleryLandscape'].includes(slotId));
+  const [cropFile,setCropFile] = useState(null);
   const inputId = useId();
   const inputRef = useRef(null);
   const [errors, setErrors] = useState([]);
@@ -54,10 +57,11 @@ export const SlotImageUpload = ({
   const [alt, setAlt] = useState(value?.alt ?? '');
 
   const handleFile = useCallback(
-    async (file) => {
+    async (file, cropped = false) => {
       if (!file || !slot) return;
       setErrors([]);
 
+      if (editableCrop && !cropped) { setCropFile(file); return; }
       let dimensions;
       try {
         dimensions = await readDimensions(file);
@@ -80,7 +84,7 @@ export const SlotImageUpload = ({
 
       // Alt text is schema-required server-side; catching it here avoids a
       // round trip that fails on something the admin can fix in a second.
-      if (!alt.trim()) {
+      if (!editableCrop && !alt.trim()) {
         setErrors(['Please describe this image for screen readers before uploading.']);
         return;
       }
@@ -97,17 +101,18 @@ export const SlotImageUpload = ({
         if (inputRef.current) inputRef.current.value = '';
       }
     },
-    [alt, onUpload, slot, slotId],
+    [alt, onUpload, slot, slotId, editableCrop],
   );
 
   if (!slot) return <p className="text-sm text-danger-600">Unknown image slot “{slotId}”.</p>;
 
-  const requirement = slot.autoCrop
+  const requirement = editableCrop ? 'Choose crop and zoom before upload · optimized for the web' : slot.autoCrop
     ? `Any aspect ratio · automatically cropped to ${slot.width}×${slot.height}px · max ${formatBytes(slot.maxBytes)}`
     : `${slot.width}×${slot.height}px · ${slot.orientation} · max ${formatBytes(slot.maxBytes)}`;
 
   return (
     <div className={cn('space-y-3', className)}>
+      <ImageCropModal file={cropFile} kind="portfolio" aspect={slot.aspect} outputWidth={slot.width} onClose={()=>{setCropFile(null);if(inputRef.current)inputRef.current.value=''}} onConfirm={async file=>{await handleFile(file,true);setCropFile(null)}}/>
       {label && <p className="text-sm font-medium text-ink-800">{label}</p>}
 
       <div
@@ -132,7 +137,8 @@ export const SlotImageUpload = ({
             <img
               src={value.thumbnail || value.url}
               alt={value.alt || ''}
-              className="h-44 w-full object-cover"
+              className={cn("w-full object-cover", !slotId.startsWith('portfolioCover') && "h-44")}
+              style={slotId.startsWith('portfolioCover') ? {aspectRatio: slot.aspect, maxWidth: 360} : undefined}
             />
             {onRemove && (
               <Button
@@ -180,7 +186,7 @@ export const SlotImageUpload = ({
           htmlFor={`${inputId}-alt`}
           className="text-xs font-medium uppercase tracking-wider text-ink-500"
         >
-          Alt text (required)
+          Alt text ({editableCrop ? 'optional' : 'required'})
         </label>
         <input
           id={`${inputId}-alt`}
@@ -192,6 +198,16 @@ export const SlotImageUpload = ({
         />
       </div>
 
+      {value?.url && editableCrop && !busy && <Button variant="secondary" size="sm" disabled={disabled} onClick={async () => {
+        setBusy(true); setErrors([]);
+        try {
+          const response = await fetch(value.url);
+          if (!response.ok) throw new Error('Could not open the image. Please choose it with Replace image.');
+          const blob = await response.blob();
+          setCropFile(new File([blob], 'cover.jpg', {type: blob.type}));
+        } catch(error) { setErrors([error.message]); }
+        finally { setBusy(false); }
+      }}>Crop current image</Button>}
       {value?.url && !busy && (
         <Button
           variant="secondary"

@@ -1,3 +1,4 @@
+import { ImageCropModal } from '@/components/profile/ImageCropModal';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image as ImageIcon, Plus, Star, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -29,8 +30,8 @@ const prettyCategory = (value) => String(value ?? '').replace(/-/g, ' ').replace
 import { SectionHeadingCard } from './SectionHeadingCard';
 
 const GALLERY_SLOTS = [
-  { value: 'galleryPortrait', label: 'Portrait frame (auto-crop to 1200×1800)' },
-  { value: 'galleryLandscape', label: 'Landscape frame (auto-crop to 1800×1200)' },
+  { value: 'galleryPortrait', label: 'Portrait frame (choose crop for 1200×1800)' },
+  { value: 'galleryLandscape', label: 'Landscape frame (choose crop for 1800×1200)' },
 ];
 
 /** Shows upload / Drive-copy progress under the album it belongs to. */
@@ -56,7 +57,9 @@ const ProgressBar = ({ progress, onStop }) => (
   </div>
 );
 
-const emptyDraft = { title: '', slug: '', category: 'weddings', span: 'std', description: '', videoUrl: '', coverDriveUrl: '' };
+const coverSlot = span => ({wide:'portfolioCoverWide',tall:'portfolioCoverTall',std:'portfolioCoverStandard'}[span] || 'portfolioCoverStandard');
+
+const emptyDraft = { title: '', slug: '', category: 'weddings', span: 'std', description: '', videoUrl: '', videoLinks: '', coverDriveUrl: '' };
 
 export const WebsitePortfolio = () => {
   const [items, setItems] = useState([]);
@@ -65,7 +68,20 @@ export const WebsitePortfolio = () => {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [draft, setDraft] = useState(emptyDraft);
+  const [draftAlbums, setDraftAlbums] = useState([]);
   const [cover, setCover] = useState(null);
+  const [videoFiles,setVideoFiles]=useState([]);
+  const [galleryCrop,setGalleryCrop]=useState(null);
+  const cropResolver=useRef(null);
+  const videoLinks = text => String(text || '').split(/\n/).map(v=>v.trim()).filter(Boolean);
+  const uploadVideos = async (id, files) => {
+    let item;
+    for (const [i,file] of Array.from(files).entries()) {
+      setProgress({key:'videos',done:i,total:files.length,label:'Uploading videos'});
+      item=(await websiteApi.portfolio.uploadVideo(id,file)).item;
+    }
+    return item;
+  };
   const [saving, setSaving] = useState(false);
   const [gallerySlot, setGallerySlot] = useState('galleryPortrait');
   const [albumTitle, setAlbumTitle] = useState('');
@@ -104,12 +120,33 @@ export const WebsitePortfolio = () => {
 
     setSaving(true);
     try {
-      await websiteApi.portfolio.create({
+      const created = await websiteApi.portfolio.create({
         ...draft,
+        videoUrls: videoLinks(draft.videoLinks),
         file: cover?.file,
         slot: 'portfolioCover',
         coverAlt: cover?.alt ?? draft.title,
       });
+      setCreating(false);setEditing(created.item);
+      try {
+        for (const album of draftAlbums) {
+          const result = await websiteApi.portfolio.createAlbum(created.item._id, { title: album.title, videoUrl: album.videoUrl });
+          setEditing(result.item);
+          if (album.files?.length) {
+            const savedAlbum = result.item.albums[result.item.albums.length - 1];
+            const uploaded = await websiteApi.portfolio.addGallery(created.item._id, album.files.map(file => ({file, slot: 'galleryPortrait', alt: draft.title, albumId: savedAlbum._id, keepShape: true})));
+            setEditing(uploaded.item);
+          }
+        }
+      } catch(error) {
+        toast.error(`Entry saved. Some albums could not be added: ${error?.response?.data?.message || error.message}. Add the remaining albums in Edit.`);
+      }
+      setDraftAlbums([]);
+      if(videoFiles.length){
+        try { setEditing(await uploadVideos(created.item._id,videoFiles)); }
+        catch(error){setEditing((await websiteApi.portfolio.get(created.item._id)).item);toast.error(`Entry saved. Video upload failed: ${error?.response?.data?.message || error.message}. Retry remaining files in Edit.`);}
+      }
+      setVideoFiles([]);setProgress(null);
       toast.success('Portfolio entry created.');
       setCreating(false);
       setDraft(emptyDraft);
@@ -134,6 +171,28 @@ export const WebsitePortfolio = () => {
     }
   };
 
+  const saveDetails = async () => {
+    if (!editing || saving) return;
+    setSaving(true);
+    try {
+      const { item } = await websiteApi.portfolio.update(editing._id, {
+        title: editing.title, slug: editing.slug, category: editing.category,
+        span: editing.span, description: editing.description,
+        location: editing.location || '', eventDate: editing.eventDate || null,
+        videoUrl: '', videoUrls: videoLinks(editing.videoLinks ?? [editing.videoUrl, ...(editing.videoUrls || [])].filter(Boolean).join('\n')),
+        isPublished: editing.isPublished,
+      });
+      let saved = item;
+      for (const album of editing.albums || []) {
+        saved = (await websiteApi.portfolio.updateAlbum(editing._id, album._id, {title: album.title, videoUrl: album.videoUrl || ''})).item;
+      }
+      setEditing(saved);
+      toast.success('Details saved.');
+      await load();
+    } catch(error) { toast.error(error?.response?.data?.message || 'Could not save details.'); }
+    finally { setSaving(false); }
+  };
+
   const remove = async () => {
     const item = deleting;
     setDeleting(null);
@@ -153,12 +212,18 @@ export const WebsitePortfolio = () => {
     setSaving(true);
     setProgress({ key: albumId ?? 'general', done: 0, total: files.length, label: 'Uploading' });
     try {
-      const entries = files.map((file) => ({ file, slot: gallerySlot, alt: editing.title, albumId, keepShape }));
+      const prepared=[];
+      for(const file of files){
+        const selected=keepShape ? file : await new Promise(resolve=>{cropResolver.current=resolve;setGalleryCrop(file)});
+        if(selected)prepared.push(selected);
+      }
+      if(!prepared.length)return;
+      const entries = prepared.map((file) => ({ file, slot: gallerySlot, alt: editing.title, albumId, keepShape: true }));
       const { item } = await websiteApi.portfolio.addGallery(editing._id, entries, {
         onProgress: (done, total) => setProgress({ key: albumId ?? 'general', done, total, label: 'Uploading' }),
       });
       setEditing(item);
-      toast.success(`${files.length} image${files.length > 1 ? 's' : ''} added.`);
+      toast.success(`${prepared.length} image${prepared.length > 1 ? 's' : ''} added.`);
       await load();
     } catch (error) {
       toast.error(error?.response?.data?.message ?? 'Those images could not be added.');
@@ -312,6 +377,7 @@ export const WebsitePortfolio = () => {
 
   return (
     <>
+      <ImageCropModal file={galleryCrop} kind="gallery" aspect={gallerySlot==='galleryPortrait'?2/3:3/2} outputWidth={gallerySlot==='galleryPortrait'?1200:1800} onClose={()=>{setGalleryCrop(null);cropResolver.current?.(null)}} onConfirm={file=>{setGalleryCrop(null);cropResolver.current?.(file)}}/>
       <PageHeader
         title="Portfolio"
         description="The work shown on the website. Drag to reorder the public grid."
@@ -403,7 +469,7 @@ export const WebsitePortfolio = () => {
       </datalist>
 
       {/* Create */}
-      <Modal open={creating} onClose={() => setCreating(false)} title="New portfolio entry" size="lg">
+      <Modal open={creating} onClose={()=>{if(!saving)setCreating(false)}} closeOnBackdrop={!saving} title="New portfolio entry" size="lg">
         <div className="space-y-4">
           <Input
             label="Title"
@@ -439,15 +505,14 @@ export const WebsitePortfolio = () => {
             value={draft.description}
             onChange={(event) => setDraft({ ...draft, description: event.target.value })}
           />
-          <Input
-            label="Video link (optional)"
-            placeholder="YouTube or Google Drive video link"
-            value={draft.videoUrl}
-            onChange={(event) => setDraft({ ...draft, videoUrl: event.target.value })}
-          />
+          <Textarea label="Video links (optional, one per line)" rows={3} placeholder="YouTube, Google Drive or video links" value={draft.videoLinks} onChange={e=>setDraft({...draft,videoLinks:e.target.value})}/>
+          <label className="block text-sm font-medium">Upload videos (optional, multiple files)<input className="mt-2 block w-full" type="file" accept="video/mp4,video/quicktime,video/webm" multiple disabled={saving} onChange={e=>setVideoFiles(Array.from(e.target.files||[]))}/></label>
+          {videoFiles.length>0&&<p className="text-sm">{videoFiles.length} videos selected. Uploaded after the entry is saved.</p>}
+          {progress?.key==='videos'&&<ProgressBar progress={progress}/>}
+
 
           <SlotImageUpload
-            slot="portfolioCover"
+            slot={coverSlot(draft.span)}
             label="Cover image"
             value={cover ? { url: cover.preview, alt: cover.alt } : null}
             // Held locally until save: the entry does not exist yet, so there is
@@ -467,11 +532,24 @@ export const WebsitePortfolio = () => {
             />
           )}
 
+          <Card>
+            <CardHeader><CardTitle>Shoot albums</CardTitle><Button size="sm" icon={Plus} disabled={saving} onClick={() => setDraftAlbums(current => [...current, {title: '', videoUrl: ''}])}>Add album</Button></CardHeader>
+            <CardBody className="space-y-4">
+              <p className="text-sm text-ink-500">Set up your albums now. Choose photos and video links for each album.</p>
+              {draftAlbums.map((album, index) => <div key={index} className="space-y-2 rounded-xl border p-3">
+                <Input label="Album name" value={album.title} onChange={e => setDraftAlbums(current => current.map((a,i) => i === index ? {...a,title:e.target.value} : a))}/>
+                <Input label="Video link (optional)" value={album.videoUrl} onChange={e => setDraftAlbums(current => current.map((a,i) => i === index ? {...a,videoUrl:e.target.value} : a))}/>
+                <label className="block text-sm">Album photos<input type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={saving} className="mt-2 block w-full" onChange={e => { const files = Array.from(e.target.files || []); setDraftAlbums(current => current.map((a,i) => i === index ? {...a,files} : a)); }}/></label>
+                <Button size="sm" variant="ghost" disabled={saving} onClick={() => setDraftAlbums(current => current.filter((_,i) => i !== index))}>Remove album</Button>
+              </div>)}
+            </CardBody>
+          </Card>
+
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setCreating(false)}>
+            <Button variant="secondary" disabled={saving} onClick={() => setCreating(false)}>
               Cancel
             </Button>
-            <Button onClick={create} loading={saving} disabled={!draft.title || (!cover && !draft.coverDriveUrl.trim())}>
+            <Button onClick={create} loading={saving} disabled={!draft.title || draftAlbums.some(album => !album.title.trim()) || (!cover && !draft.coverDriveUrl.trim())}>
               Create entry
             </Button>
           </div>
@@ -481,12 +559,28 @@ export const WebsitePortfolio = () => {
       {/* Edit */}
       <Modal
         open={Boolean(editing)}
-        onClose={() => setEditing(null)}
+        onClose={() => { if (!saving) setEditing(null); }}
+        closeOnBackdrop={!saving}
+        headerActions={<Button size="sm" onClick={saveDetails} loading={saving}>Save</Button>}
         title={editing?.title ?? ''}
         size="lg"
       >
         {editing && (
           <div className="space-y-5">
+            <Select
+              label="Tile shape"
+              hint="Choose how this entry appears in the website portfolio grid, then press Save."
+              options={PORTFOLIO_SPAN_OPTIONS}
+              value={editing.span || 'std'}
+              disabled={saving}
+              onChange={(event) => setEditing({ ...editing, span: event.target.value })}
+            />
+            <SlotImageUpload slot={coverSlot(editing.span)} label="Cover image — replace and crop" value={editing.coverImage} disabled={saving}
+              onUpload={async payload => {
+                const { item } = await websiteApi.portfolio.updateCover(editing._id, {...payload, span: editing.span || 'std'});
+                setEditing(current => ({ ...current, coverImage: item.coverImage }));
+                await load();
+              }} />
             <Card>
               <CardHeader>
                 <CardTitle className="text-md">Details</CardTitle>
@@ -513,12 +607,6 @@ export const WebsitePortfolio = () => {
                     hint="A new name creates a new tab on the website."
                     onChange={(event) => setEditing({ ...editing, category: event.target.value })}
                   />
-                  <Select
-                    label="Tile shape"
-                    options={PORTFOLIO_SPAN_OPTIONS}
-                    value={editing.span}
-                    onChange={(event) => setEditing({ ...editing, span: event.target.value })}
-                  />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
@@ -540,13 +628,11 @@ export const WebsitePortfolio = () => {
                   value={editing.description ?? ''}
                   onChange={(event) => setEditing({ ...editing, description: event.target.value })}
                 />
-                <Input
-                  label="Film link (optional)"
-                  placeholder="YouTube or Google Drive video link"
-                  value={editing.videoUrl ?? ''}
-                  onChange={(event) => setEditing({ ...editing, videoUrl: event.target.value })}
-                  hint="Shown on the story page under the cover. YouTube is best for long films."
-                />
+                <Textarea label="Video links (optional, one per line)" rows={3} value={editing.videoLinks ?? [...new Set([editing.videoUrl,...(editing.videoUrls||[])].filter(Boolean))].join('\n')} onChange={e=>setEditing({...editing,videoLinks:e.target.value})}/>
+                <label className="block text-sm font-medium">Add video files<input type="file" multiple accept="video/mp4,video/quicktime,video/webm" disabled={saving} className="mt-2 block w-full" onChange={async e=>{const files=Array.from(e.target.files||[]);e.target.value='';if(!files.length)return;setSaving(true);try{setEditing(await uploadVideos(editing._id,files));await load()}catch(error){toast.error(error?.response?.data?.message||'Video upload failed');const result=await websiteApi.portfolio.get(editing._id);setEditing(result.item)}finally{setSaving(false);setProgress(null)}}}/></label>
+                {progress?.key==='videos'&&<ProgressBar progress={progress}/>}
+                {(editing.videos||[]).map(video=><div key={video._id} className="flex items-center justify-between gap-2 rounded border p-2"><a href={video.url} target="_blank" rel="noreferrer" className="truncate text-sm underline">{video.title||'Video'}</a><Button size="sm" variant="danger-soft" disabled={saving} onClick={async()=>{try{const result=await websiteApi.portfolio.removeVideo(editing._id,video._id);setEditing(result.item);await load()}catch(error){toast.error(error?.response?.data?.message||'Could not remove video')}}}>Remove</Button></div>)}
+
 
                 <div className="flex items-center justify-between">
                   <span className="text-base text-ink-800">Published on the website</span>
@@ -557,23 +643,6 @@ export const WebsitePortfolio = () => {
                   />
                 </div>
 
-                <Button
-                  onClick={() =>
-                    patch(editing, {
-                      title: editing.title,
-                      slug: editing.slug,
-                      category: editing.category,
-                      span: editing.span,
-                      description: editing.description,
-                      location: editing.location ?? '',
-                      eventDate: editing.eventDate ? editing.eventDate : null,
-                      videoUrl: editing.videoUrl ?? '',
-                      isPublished: editing.isPublished,
-                    })
-                  }
-                >
-                  Save details
-                </Button>
               </CardBody>
             </Card>
 
@@ -587,7 +656,7 @@ export const WebsitePortfolio = () => {
                       onChange={(event) => setKeepShape(event.target.checked)}
                       aria-label="Keep each photo's original shape"
                     />
-                    Keep original shape
+                    Keep original shape (off: choose crop per photo)
                   </label>
                   {!keepShape && (
                     <Select
@@ -667,7 +736,7 @@ export const WebsitePortfolio = () => {
                       </span>
                       <span className="text-xs text-ink-500">
                         {keepShape
-                          ? 'Full-size camera files are fine (up to 40 MB each). Photos keep their own shape.'
+                          ? 'Photos keep their own shape. Large camera files are supported.'
                           : `Photos are cropped to a fixed frame. ${GALLERY_SLOTS.find((s) => s.value === gallerySlot)?.label}`}
                       </span>
                       <input

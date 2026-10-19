@@ -9,7 +9,7 @@
  * Design space is 1080px wide. Font sizes are `calc(var(--wq-s) * Npx)`,
  * where --wq-s is the fit scale found by planLayout (A10).
  */
-import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Children, forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { buildPrintModel } from '../utils/engine/display';
 import { DESIGN_WIDTH, planLayout } from '../utils/engine/layout';
 import { normalizeNote } from '../utils/engine/notes';
@@ -142,6 +142,7 @@ const Block = ({ id, theme, override = {}, styleKey, safeWidth, mode, selected, 
         textAlign: align,
         boxShadow: editing && selected ? '0 0 0 2px rgba(59,130,246,0.85)' : undefined,
         borderRadius: 6,
+        ...(def.schemaVersion === 2 && !['dates','deliverables','addOn'].includes(id) ? boxStyle(bs, def.colors) : {}),
         ['--wq-b']: ov.fontScale ?? 1,
       }}
     >
@@ -167,6 +168,7 @@ const boxStyle = (bs, colors, fallbackBg, fallbackBorder) => ({
   background: bs.bg ?? fallbackBg ?? 'transparent',
   border: (bs.borderWidth ?? 0) > 0 ? `${bs.borderWidth}px solid ${bs.borderColor ?? fallbackBorder ?? colors.accent}` : 'none',
   borderRadius: bs.radius ?? 0,
+  boxSizing: 'border-box',
   padding: `${sz(bs.paddingY ?? 0)} ${sz(bs.paddingX ?? 0)}`,
 });
 
@@ -193,14 +195,15 @@ export const QuoteCanvas = memo(
     // lines are left alone: capital letters in a script font are unreadable.
     const caps = quote.layout?.options?.caps !== false;
     const capsFor = (slot) => (caps && slot !== 'script' ? { textTransform: 'uppercase' } : {});
-    const overrides = quote.layout?.blockOverrides ?? {};
+    const overrides = useMemo(() => ({ ...(def.layout?.blockOverrides ?? {}), ...(quote.layout?.blockOverrides ?? {}) }), [def.layout?.blockOverrides, quote.layout?.blockOverrides]);
 
     const model = useMemo(() => buildPrintModel(quote, { dateStyle: def.dateStyle, studio }), [quote, def.dateStyle, studio]);
 
+    const [fontError,setFontError]=useState(false);
     const [fontsVersion, setFontsVersion] = useState(0);
     useEffect(() => {
       let alive = true;
-      Promise.all([registerBundledFonts(), registerThemeFonts(theme)]).then(() => alive && setFontsVersion((v) => v + 1));
+      Promise.all([registerBundledFonts(), registerThemeFonts(theme)]).then(results => { if(alive){setFontError(results.flat().some(face=>face===null));setFontsVersion(v=>v+1);} });
       return () => { alive = false; };
     }, [theme]);
 
@@ -219,9 +222,14 @@ export const QuoteCanvas = memo(
       }
       const measure = (s) => {
         el.style.setProperty('--wq-s', String(s));
-        return el.offsetHeight + padTop + padBottom;
+        const rect = el.getBoundingClientRect();
+        const scale = rect.width / safeWidth || 1;
+        const bottom = Math.max(el.offsetHeight, ...[...el.querySelectorAll('[data-wq-block]')].map(b => (b.getBoundingClientRect().bottom - rect.top) / scale));
+        const measuredLayersBottom = Math.max(0, ...[...el.closest('[data-wq-canvas]').querySelectorAll('[data-wq-element]')].map(layer => (layer.getBoundingClientRect().bottom - el.closest('[data-wq-canvas]').getBoundingClientRect().top) / scale));
+        const layersBottom = Math.max(measuredLayersBottom, ...(def.elements ?? []).filter(e => !e.hidden).map(e => e.y + Math.abs(e.height * Math.cos((e.rotation ?? 0)*Math.PI/180)) / 2 + Math.abs(e.width * Math.sin((e.rotation ?? 0)*Math.PI/180)) / 2 + e.height/2));
+        return Math.max(bottom + padTop + padBottom, layersBottom, def.layout?.minHeight ?? 0);
       };
-      const next = planLayout(measure, {
+      const next = def.layout?.autoGrow ? { scale: 1, height: Math.max(W, Math.ceil(measure(1))), warning: null } : planLayout(measure, {
         width: W,
         dayCount: model.dayCount,
         minFontScale: def.density?.minFontScale ?? 0.6,
@@ -311,13 +319,19 @@ export const QuoteCanvas = memo(
           value={line.text}
           editable={editable}
           onCommit={commit}
-          style={{ ...wrap, fontFamily: font('body'), color: colors.text, fontSize: fs(typo.itemSize), fontWeight: 600, marginTop: sz(4) }}
+          style={{ ...wrap, fontFamily: font(rowStyle.font ?? 'body'), color: rowStyle.color ?? colors.text, letterSpacing: rowStyle.letterSpacing, fontSize: fs(typo.itemSize), fontWeight: 600, marginTop: sz(4) }}
         />
       ));
       const emptyLine = !group.lines.length && editable ? <div style={{ ...wrap, color: colors.muted, fontSize: fs(typo.itemSize * 0.8), fontFamily: font('body') }}>—</div> : null;
-      const frame = { ...boxStyle(rowStyle, colors, undefined, colors.accent), marginTop: sz(14 * gap) };
+      const frame = { ...boxStyle(rowStyle, colors, undefined, colors.accent), marginTop: sz(def.layout?.rowGap ?? 14 * gap) };
 
-      if (def.dateStyle === 'tile' && group.tile) {
+      if (def.layout?.dateStructure === 'columns') {
+        return <div key={group.key} style={{ ...frame, display: 'grid', gridTemplateColumns: `${def.layout.dateColumnPct ?? 22}% minmax(0, 1fr)`, gap: sz(def.layout.columnGap ?? 24), alignItems: 'start', boxSizing: 'border-box' }}>
+          <div style={{ minWidth: 0, textAlign: 'left' }}>{labelText}</div>
+          <div style={{ minWidth: 0, textAlign: 'left' }}>{lines}{emptyLine}</div>
+        </div>;
+      }
+      if (def.layout?.dateStructure !== 'stacked' && def.dateStyle === 'tile' && group.tile) {
         return (
           <div key={group.key} style={{ ...frame, display: 'flex', alignItems: 'center', gap: sz(22), textAlign: 'left' }}>
             <div style={{ flex: '0 0 auto', background: tileBg, color: tileText, borderRadius: sz(16), padding: `${sz(8)} ${sz(16)}`, textAlign: 'center', minWidth: sz(typo.dateSize * 2.4) }}>
@@ -333,7 +347,7 @@ export const QuoteCanvas = memo(
           </div>
         );
       }
-      if (def.dateStyle === 'pill' || (def.dateStyle === 'tile' && !group.tile)) {
+      if (def.layout?.dateStructure !== 'stacked' && (def.dateStyle === 'pill' || (def.dateStyle === 'tile' && !group.tile))) {
         return (
           <div key={group.key} style={{ ...frame, textAlign: align }}>
             <div style={{ display: 'inline-block', background: def.dateStyle === 'tile' ? tileBg : 'transparent', color: def.dateStyle === 'tile' ? tileText : colors.title, border: `2px solid ${colors.accent}`, borderRadius: 999, padding: `${sz(4)} ${sz(22)}` }}>
@@ -456,12 +470,19 @@ export const QuoteCanvas = memo(
       </>
     );
 
+    const flowBlocks = Children.toArray(content.props.children).filter(child => child?.props?.id);
+    const orderedContent = def.layout?.order
+      ? def.layout.order.map(id => flowBlocks.find(child => child.props.id === id)).filter(Boolean)
+      : flowBlocks;
+    const renderedContent = def.schemaVersion === 2 ? orderedContent.map(child => <div key={child.props.id} style={{ marginTop: child.props.id === (orderedContent[0]?.props.id) ? 0 : (def.layout?.sectionGap ?? 16) }}>{child.props.id === 'dates' && divider ? <Divider /> : null}{child}</div>) : content;
+    const bindingValues = { title: model.title, subtitle: model.subtitle, footer: model.footer, selling: model.price.sellingText, mrp: model.price.mrpText };
     const availH = plan.height - padTop - padBottom;
 
     return (
       <div
         ref={outerRef}
         data-wq-canvas=""
+        data-wq-font-error={fontError || undefined}
         onClick={editable ? () => onSelectBlock?.(null) : undefined}
         style={{
           position: 'relative',
@@ -472,6 +493,9 @@ export const QuoteCanvas = memo(
           fontFamily: font('body'),
           color: colors.text,
           boxSizing: 'border-box',
+          // Keep the fixed print layout identical on phones and in SVG export.
+          WebkitTextSizeAdjust: 'none',
+          textSizeAdjust: 'none',
         }}
       >
         {bgUrl && (
@@ -480,6 +504,9 @@ export const QuoteCanvas = memo(
         {def.canvas.overlay && <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: def.canvas.overlay }} />}
         {frameUrl && <div aria-hidden="true" style={{ position: 'absolute', inset, backgroundImage: cssUrl(frameUrl), backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', pointerEvents: 'none' }} />}
         {ornaments}
+        {(def.elements ?? []).filter(e => !e.hidden).map((e, index) => <div key={e.id} data-wq-element={e.id} style={{ position: 'absolute', zIndex: 2 + index, left: e.x, top: e.y, width: e.width, minHeight: e.type === 'text' ? e.height : undefined, height: e.type === 'text' ? undefined : e.height, transform: `rotate(${e.rotation ?? 0}deg)`, opacity: e.opacity ?? 1, background: e.fill ?? 'transparent', border: `${e.borderWidth ?? 0}px solid ${e.borderColor ?? 'transparent'}`, borderRadius: e.radius ?? 0, boxSizing: 'border-box', color: e.color ?? colors.text, fontFamily: font(e.font ?? 'body'), fontSize: e.fontSize ?? 32, fontWeight: e.fontWeight ?? 400, lineHeight: e.lineHeight ?? 1.4, letterSpacing: e.letterSpacing ?? 0, textAlign: e.align ?? 'left', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>
+          {e.type === 'text' ? (e.binding ? bindingValues[e.binding] : e.text) : e.type === 'image' ? <img alt="" src={resolveAsset(theme, e.image)} style={{ width: '100%', height: '100%', objectFit: e.fit ?? 'cover', objectPosition: `${e.cropX ?? 50}% ${e.cropY ?? 50}%`, borderRadius: 'inherit' }} /> : null}
+        </div>)}
         <div
           style={{
             position: 'absolute',
@@ -489,7 +516,7 @@ export const QuoteCanvas = memo(
           }}
         >
           <div ref={columnRef} style={{ width: '100%', ['--wq-s']: plan.scale }}>
-            {content}
+            {renderedContent}
           </div>
         </div>
       </div>

@@ -15,7 +15,7 @@ const splitBackground = (colors) => {
     `${color} ${index * width}%`,
     `${color} ${(index + 1) * width}%`,
   ]);
-  return `linear-gradient(90deg, ${stops.join(', ')})`;
+  return `conic-gradient( ${stops.join(', ')})`;
 };
 
 /**
@@ -33,6 +33,8 @@ export const Calendar = ({
   showSelectionOrder = true,
 }) => {
   const { month, year } = view;
+  const today = new Date();
+  const todayKey = keyOf({ year: today.getFullYear(), month: today.getMonth() + 1, day: today.getDate() });
   const first = (new Date(year, month - 1, 1).getDay() + 6) % 7; // Monday-first
   const total = daysInMonth(month, year);
   const cells = [...Array(first).fill(null), ...Array.from({ length: total }, (_, i) => i + 1)];
@@ -75,7 +77,7 @@ export const Calendar = ({
           const isOn = index !== -1;
           const dayBookings = bookingsByDate.get(dateKey) ?? [];
           const dayFestivals = festivalsByDate.get(dateKey) ?? [];
-          const colors = [...new Set(dayBookings.map((booking) => booking.resolvedColor).filter(Boolean))];
+          const colors = dayBookings.map((booking) => booking.resolvedColor).filter(Boolean);
           const bookingBackground = splitBackground(colors);
           const hasBookings = dayBookings.length > 0;
           const festivalText = dayFestivals.map((festival) => festival.name).join(', ');
@@ -90,23 +92,23 @@ export const Calendar = ({
               title={[bookingText, festivalText].filter(Boolean).join(' · ') || undefined}
               disabled={!isOn && full}
               onClick={() => onToggle(date)}
-              style={hasBookings ? { background: bookingBackground } : undefined}
+              style={{ border: `2px solid ${isOn ? '#334155' : 'transparent'}`, boxShadow: isOn ? '0 0 0 2px #fff, 0 0 0 3px #94a3b8' : undefined }}
               className={cn(
                 'relative flex aspect-square min-h-12 flex-col items-center justify-center overflow-hidden rounded-xl px-0.5 text-base font-semibold transition-all',
-                hasBookings && 'text-white shadow-sm ring-1 ring-inset ring-black/10 hover:brightness-105',
+                hasBookings && 'bg-white text-ink-900 shadow-sm',
                 !hasBookings && (isOn ? 'bg-brand-500 text-white shadow-sm' : 'bg-white text-ink-800 ring-1 ring-inset ring-ink-200 hover:bg-brand-50'),
-                isOn && hasBookings && 'ring-2 ring-brand-500 ring-offset-2',
                 !isOn && full && 'opacity-40',
               )}
             >
-              {hasBookings && <span className="absolute left-1 top-1 rounded-full bg-white/95 px-1 text-2xs font-bold text-ink-800">{dayBookings.length}</span>}
-              <span className={cn(hasBookings && 'drop-shadow-sm')}>{day}</span>
+              {hasBookings && <span aria-hidden="true" data-booking-pie className="pointer-events-none absolute inset-0.5 rounded-full" style={{ background: bookingBackground }} />}
+              <span data-past-date={dateKey < todayKey || undefined} className={cn('relative', hasBookings && 'text-white', dateKey < todayKey && (hasBookings || isOn ? 'opacity-50' : 'text-ink-400'))} style={hasBookings ? { textShadow: '0 1px 3px #000, 0 0 2px #000' } : undefined}>{day}</span>
               {dayFestivals.length > 0 && (
-                <span className={cn('mt-0.5 w-full truncate px-0.5 text-[8px] font-semibold leading-none', hasBookings ? 'text-white/90' : 'text-amber-700')}>
+                <span className={cn('mt-0.5 w-full truncate px-0.5 text-[8px] font-semibold leading-none', 'relative rounded bg-white/95 text-amber-700')}>
                   {dayFestivals[0].name}{dayFestivals.length > 1 ? ` +${dayFestivals.length - 1}` : ''}
                 </span>
               )}
               {isOn && showSelectionOrder && <span className="absolute right-1 top-1 rounded-full bg-white/95 px-1 text-2xs font-bold text-brand-700">{index + 1}</span>}
+
             </button>
           );
         })}

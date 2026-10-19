@@ -49,24 +49,26 @@ const canvasBlob = (canvas, type = 'image/jpeg', quality = 0.92) =>
  * The canvas is also the preview, so the saved pixels always match what the
  * admin saw. Dragging moves the crop; the sliders provide precise control.
  */
-export const ImageCropModal = ({ file, kind, onClose, onConfirm }) => {
+export const ImageCropModal = ({ file, kind, aspect: requestedAspect, outputWidth, onClose, onConfirm }) => {
   const canvasRef = useRef(null);
   const dragRef = useRef(null);
   const [image, setImage] = useState(null);
+  const [error,setError] = useState('');
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0.5, y: 0.5 });
   const [saving, setSaving] = useState(false);
   const isProfile = kind === 'profile';
-  const aspect = isProfile ? 1 : 2;
+  const aspect = requestedAspect ?? (isProfile ? 1 : 2);
 
   useEffect(() => {
-    setImage(null);
+    setImage(null);setError('');
     setZoom(1);
     setPosition({ x: 0.5, y: 0.5 });
     if (!file) return undefined;
     const url = URL.createObjectURL(file);
     const nextImage = new Image();
     nextImage.onload = () => setImage(nextImage);
+    nextImage.onerror = () => setError('This file could not be opened. Choose a JPG, PNG or WEBP image.');
     nextImage.src = url;
     return () => URL.revokeObjectURL(url);
   }, [file]);
@@ -102,12 +104,12 @@ export const ImageCropModal = ({ file, kind, onClose, onConfirm }) => {
     setSaving(true);
     try {
       const canvas = document.createElement('canvas');
-      const width = isProfile ? 1000 : 1800;
+      const width = outputWidth ?? (isProfile ? 1000 : 1800);
       drawCrop(canvas, image, aspect, zoom, position, width);
       const blob = await canvasBlob(canvas);
       const baseName = file.name.replace(/\.[^.]+$/, '') || kind;
       await onConfirm(new File([blob], `${baseName}-${kind}-cropped.jpg`, { type: blob.type }));
-    } finally {
+    } catch(error) { setError(error.message || 'Could not prepare this crop.'); } finally {
       setSaving(false);
     }
   };
@@ -119,10 +121,11 @@ export const ImageCropModal = ({ file, kind, onClose, onConfirm }) => {
       closeOnBackdrop={!saving}
       size="lg"
       title={isProfile ? 'Crop profile photo' : 'Crop cover photo'}
-      description={isProfile ? 'Keep your face inside the square frame.' : 'Drag and zoom to create a wide 2:1 cover.'}
+      description={isProfile ? 'Keep your face inside the square frame.' : 'Drag or use the sliders to choose the exact part of your image.'}
       footer={<><Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button><Button icon={Crop} loading={saving} disabled={!image} onClick={save}>Use this crop</Button></>}
     >
       <div className="space-y-5">
+        {error&&<p role="alert" className="text-danger-600">{error}</p>}
         <div className="overflow-hidden rounded-2xl bg-ink-950 shadow-inner" style={{ aspectRatio: String(aspect) }}>
           {image ? (
             <canvas

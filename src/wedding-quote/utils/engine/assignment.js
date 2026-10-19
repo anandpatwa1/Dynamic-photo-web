@@ -2,7 +2,7 @@
  * Theme ↔ day-count assignment rules (Phase 3.8).
  * SHARED FILE — identical copy lives in client/src/wedding-quote/utils/engine/.
  */
-export const MAX_THEMES_PER_DAY = 5;
+export const MAX_THEMES_PER_DAY = 100;
 
 /** Returns { ok, value, error }; dedupes and guarantees exactly one default. */
 export const normalizeAssignment = ({ dayCount, themeIds = [], defaultThemeId = null }) => {

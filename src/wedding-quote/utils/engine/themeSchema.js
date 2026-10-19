@@ -9,12 +9,13 @@
  */
 import { z } from 'zod';
 import { FONT_FAMILIES } from './fontWhitelist.js';
+import { THEME_LIMITS } from './themeLimits.js';
 import { isColor } from './contrast.js';
 
-export const THEME_SCHEMA_VERSION = 1;
+export const THEME_SCHEMA_VERSION = 2;
 
 const color = z.string().trim().refine(isColor, 'Use a hex (#RRGGBB) or rgba() colour');
-const imageRef = z.string().trim().min(1).max(300).describe('asset file name from the zip (e.g. "bg.webp") or an inline data:image URI');
+const imageRef = z.string().trim().min(1).max(THEME_LIMITS.maxThemeJsonBytes).describe('asset file name from the zip (e.g. "bg.webp") or an inline data:image URI');
 const px = (min, max) => z.number().min(min).max(max);
 
 const blockStyle = z
@@ -36,7 +37,7 @@ const blockStyle = z
 
 export const themeDefinitionSchema = z
   .object({
-    schemaVersion: z.literal(THEME_SCHEMA_VERSION),
+    schemaVersion: z.number().int().min(1).max(THEME_SCHEMA_VERSION),
     name: z.string().trim().min(2).max(80),
     forDays: z.array(z.number().int().min(1).max(10)).min(1).max(10),
     canvas: z
@@ -94,6 +95,37 @@ export const themeDefinitionSchema = z
       })
       .strict()
       .describe('pixel sizes at a 1080px-wide canvas'),
+    layout: z.object({
+      order: z.array(z.enum(['title', 'subtitle', 'dates', 'deliverables', 'addOn', 'price', 'notes', 'footer'])).max(8).optional(),
+      dateStructure: z.enum(['auto', 'stacked', 'columns']).optional(),
+      dateColumnPct: px(12, 45).optional(),
+      columnGap: px(0, 100).optional(),
+      rowGap: px(0, 100).optional(),
+      sectionGap: px(0, 120).optional(),
+      minHeight: px(1080, 12000).optional(),
+      autoGrow: z.boolean().optional(),
+      blockOverrides: z.record(z.object({ x: px(-2000,2000).optional(), y: px(-4000,4000).optional(), w: px(80,1080).optional(), h: px(0,6000).optional(), fontScale: px(.3,3).optional() }).strict()).optional(),
+    }).strict().optional(),
+    elements: z.array(z.object({
+      id: z.string().regex(/^[a-zA-Z0-9_-]+$/).max(80),
+      type: z.enum(['text', 'image', 'shape']),
+      name: z.string().max(80).optional(),
+      text: z.string().max(4000).optional(),
+      binding: z.enum(['title', 'subtitle', 'footer', 'selling', 'mrp']).optional(),
+      image: imageRef.optional(),
+      x: px(0, 1080), y: px(0, 12000), width: px(1, 1080), height: px(1, 12000),
+      rotation: px(-360, 360).optional(), opacity: px(0, 1).optional(),
+      hidden: z.boolean().optional(), locked: z.boolean().optional(),
+      group: z.string().max(80).optional(),
+      font: z.enum(['title', 'body', 'number', 'script']).optional(),
+      fontSize: px(10, 240).optional(), fontWeight: z.number().int().min(100).max(900).optional(),
+      lineHeight: px(0.8, 3).optional(), letterSpacing: px(-5, 30).optional(),
+      align: z.enum(['left', 'center', 'right']).optional(),
+      color: color.optional(), fill: color.optional(), borderColor: color.optional(),
+      borderWidth: px(0, 30).optional(), radius: px(0, 999).optional(),
+      fit: z.enum(['cover', 'contain']).optional(),
+      cropX: px(0, 100).optional(), cropY: px(0, 100).optional(),
+    }).strict()).max(100).optional(),
     dateStyle: z.enum(['plain', 'tile', 'pill']),
     dividers: z.object({ image: imageRef.optional() }).strict().optional(),
     ornaments: z
@@ -134,6 +166,13 @@ export const themeDefinitionSchema = z
   })
   .strict()
   .superRefine((def, ctx) => {
+    if (def.schemaVersion === 1 && (def.layout || def.elements)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['schemaVersion'], message: 'Layout and elements require schemaVersion 2' });
+    const ids = (def.elements ?? []).map(e => e.id);
+    if (new Set(ids).size !== ids.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['elements'], message: 'Element IDs must be unique' });
+    if (def.layout?.order && new Set(def.layout.order).size !== def.layout.order.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['layout', 'order'], message: 'Each dynamic section can appear only once' });
+    for (const [i, element] of (def.elements ?? []).entries()) {
+      if (element.type === 'image' && !element.image) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['elements', i, 'image'], message: 'Image layer needs an asset reference' });
+    }
     const shipped = new Set((def.fontFiles ?? []).map((f) => f.family));
     for (const [slot, family] of Object.entries(def.fonts)) {
       if (!FONT_FAMILIES.includes(family) && !shipped.has(family)) {
@@ -150,7 +189,7 @@ export const themeDefinitionSchema = z
 export const migrateThemeDefinition = (raw) => {
   if (!raw || typeof raw !== 'object') return raw;
   const def = { ...raw };
-  if (def.schemaVersion === undefined) def.schemaVersion = THEME_SCHEMA_VERSION;
+  if (def.schemaVersion === undefined) def.schemaVersion = 1;
   // Future: if (def.schemaVersion === 1) { …transform…; def.schemaVersion = 2; }
   // Accept "plain | tile | pill" copied literally from documentation.
   if (typeof def.dateStyle === 'string' && def.dateStyle.includes('|')) def.dateStyle = def.dateStyle.split('|')[0].trim();
@@ -177,6 +216,7 @@ export const collectAssetRefs = (def) => {
   if (def?.dividers?.image) refs.push({ path: 'dividers.image', ref: def.dividers.image });
   (def?.ornaments ?? []).forEach((o, i) => refs.push({ path: `ornaments.${i}.image`, ref: o.image }));
   (def?.fontFiles ?? []).forEach((f, i) => refs.push({ path: `fontFiles.${i}.file`, ref: f.file, font: true }));
+  (def?.elements ?? []).forEach((e, i) => { if (e.image) refs.push({ path: `elements.${i}.image`, ref: e.image }); });
   return refs;
 };
 
@@ -214,6 +254,7 @@ export const zodToJsonSchema = (input) => {
       }
       return withDesc({ type: 'object', properties, required, additionalProperties: false });
     }
+    case 'ZodRecord': return withDesc({ type: 'object', additionalProperties: zodToJsonSchema(def.valueType) });
     case 'ZodArray': {
       const out = { type: 'array', items: zodToJsonSchema(def.type) };
       if (def.minLength) out.minItems = def.minLength.value;
@@ -269,31 +310,39 @@ export const EXAMPLE_THEME = {
   density: { gapScale: 1, minFontScale: 0.6 },
 };
 
-/** Prompt text for ChatGPT / Gemini / Claude, generated from the live schema. */
-export const buildAiPrompt = () => `You are designing a THEME for a wedding photography quotation poster generator.
-Output a ZIP-ready theme package: one file named theme.json plus optional asset files (SVG, PNG or WEBP).
+/** Complete JSON-only example: no missing external artwork. */
+export const SIMPLE_THEME = {
+  ...EXAMPLE_THEME, schemaVersion: 2, name: 'Clean Studio',
+  canvas: { bg: '#FBF4EF' }, dividers: {}, ornaments: [],
+  fonts: { ...EXAMPLE_THEME.fonts, body: 'Montserrat', number: 'Montserrat' },
+  layout: { dateStructure: 'columns', dateColumnPct: 22, columnGap: 24, rowGap: 12, sectionGap: 16, autoGrow: true },
+  typography: { ...EXAMPLE_THEME.typography, titleSize: 64, dateSize: 28, itemSize: 30, priceSize: 120 },
+  elements: [],
+};
 
-STRICT RULES
-1. theme.json must validate against the JSON Schema below (schemaVersion ${THEME_SCHEMA_VERSION}). Do not add any other keys.
-2. Every image field ("backgroundImage", "frame.image", "dividers.image", "ornaments[].image") is EITHER a file name you also provide (e.g. "frame.svg") OR an inline "data:image/svg+xml;base64,..." URI.
-3. Fonts: only use ${FONT_FAMILIES.map((f) => `"${f}"`).join(', ')}. (A custom .woff2 may be shipped via "fontFiles", but prefer the bundled list.)
-4. SVG assets must be self-contained: no <script>, no event handlers (onload…), no <foreignObject>, no external links or web fonts, no <image href="http…">. Use only shapes, paths, gradients and fills.
-5. Sizes in "typography" are pixels for a 1080px-wide canvas. "safeArea" values are % of width kept free of text — make them large enough that text never overlaps the frame or ornaments.
-6. Do NOT draw any text, prices, dates or names in the artwork — the app prints all text. Do not use copyrighted images.
-7. Keep text colours readable on the background (contrast ≥ 4.5:1 for "text", ≥ 3:1 for "title" and "priceMain").
-8. Each asset file ≤ 2 MB (SVG ≤ 512 KB), at most 30 assets.
+/** Generated from live schema and budgets; options contain design preferences only. */
+export const buildAiPrompt = ({ mode = 'simple', style = '', palette = '', language = 'English', days = '1, 3, 5, 7, 10', density = 'comfortable', reference = true } = {}) => `Create a wedding quotation theme, schemaVersion ${THEME_SCHEMA_VERSION}.
+Output mode: ${mode}. Style: ${style || 'refined studio'}. Palette: ${palette || 'choose a readable palette'}. Language: ${language}. Intended days: ${days}. Density: ${density}.
+${reference ? 'Analyse the attached reference palette, typography, hierarchy and artwork. Preserve its visual identity. If no image is attached, follow the style description.' : 'Create an original design from the preferences.'}
 
-LAYOUT FACTS (do not change, design around them)
-- Blocks are printed top to bottom: title, subtitle, one row per wedding date (date label + item lines), a "Deliverables" box, an optional add-on badge, the price (small struck-through MRP + large selling price), notes, footer.
-- The canvas is 1080px wide, at least square, up to ~1:1.78 portrait. The art must look right when stretched taller (use "cover" backgrounds, corner/edge ornaments and a frame with "inset").
-- "dateStyle": "plain" (13 December), "tile" (big day number + small month in a coloured tile using colors.dateTileBg/dateTileText) or "pill" (13 DEC in a rounded pill).
+CONTRACT
+- Simple: output one complete theme.json with no external assets; use the complete simple example below.
+- Advanced: supply an actual ZIP containing theme.json and every referenced image/font. If file creation is unavailable, give exact filenames and COMPLETE SVG/JSON text for the text-only packaging flow. Never claim a ZIP exists when it does not.
+- Text-only: give theme.json and a JSON object mapping filenames to complete SVG text. Do not fabricate binary/base64 images or fonts.
+- Strict valid JSON: no comments, trailing commas, placeholders or unknown properties. Use the exact schema below. Layout/elements require version 2; legacy version 1 remains supported.
+- Keep services, names, dates, prices, notes and studio data dynamic; do not bake them into artwork. Layer bindings: title, subtitle, footer, selling, mrp. Never include internal cost/profit or private customer data.
+- Canvas width is 1080 design px. Safe-area percentages use this width, including top/bottom. Frame inset is pixels from canvas edge; block widths are percentages of the remaining safe width. Padding is inside blocks. Do not compensate for incorrect geometry with arbitrary huge margins.
+- Default flow order is title/subtitle/dates/deliverables/addOn/price/notes/footer. layout.order chooses order and visible sections. dateStyle controls appearance; layout.dateStructure=columns places date left and wrapping services right. Row and section gaps are design pixels.
+- Canvas is at least square; natural content can grow beyond 1:1.78. autoGrow=true keeps fonts readable rather than shrinking. Free elements have x/y/width/height, rotation and array layer order; they extend the canvas and may intentionally overlap. Keep variable-content flow and fixed artwork clear of each other.
+- Frame and corner ornaments may duplicate decorations: use explicit visual roles, inspect them together, and avoid doubling the same corner. Do not remove intentional layers blindly.
+- Bundled fonts: ${FONT_FAMILIES.join(', ')}. Prefer Montserrat for body/numbers. Custom fontFiles must contain real WOFF2 files with matching family/weight, needed language glyphs, ₹, punctuation and digits. Do not claim unsupported script coverage.
+- SVG must be self-contained: no scripts, event handlers, foreignObject or external references. Only real supported PNG/JPEG/WEBP/SVG/WOFF2 assets.
+- Budgets in bytes: ${JSON.stringify(THEME_LIMITS)}. No minimum package size. Images must remain within maxImagePixels. Large assets belong in ZIP files, not inline JSON.
+- Body text contrast target 4.5:1; title/price 3:1. Inspect actual block backgrounds and images. Warn when contrast cannot be established.
+- Self-check long titles/service lines, sparse/dense 1/3/5/7/10-date content, multiple deliverables, optional add-on, notes, footer and large prices. Do not claim to have run this app validator.
 
-JSON SCHEMA
+SCHEMA
 ${JSON.stringify(themeJsonSchema(), null, 2)}
-
-EXAMPLE theme.json
-${JSON.stringify(EXAMPLE_THEME, null, 2)}
-
-TASK
-Create a theme that matches this description / reference image: <<DESCRIBE THE LOOK OR ATTACH THE REFERENCE POSTER HERE>>
-Reply with: (a) theme.json in a code block, (b) each asset file in its own code block titled with its file name, (c) a short checklist of what the user should review (colours, safe area vs. ornaments, font choices).`;
+COMPLETE SIMPLE EXAMPLE
+${JSON.stringify(SIMPLE_THEME, null, 2)}
+Return the complete files and concise review notes. For advanced artwork you may use the app's downloadable verified ZIP example as a starting point.`;

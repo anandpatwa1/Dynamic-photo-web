@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Play } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Play, X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 /** Extracts the stable video id from watch, short, embed, shorts and live YouTube URLs. */
@@ -8,7 +9,12 @@ export const getYouTubeId = (value) => {
     const url = new URL(value);
     const host = url.hostname.replace(/^www\./, '').replace(/^m\./, '');
     if (host === 'youtu.be') return url.pathname.slice(1).split('/')[0] || null;
-    if (host.endsWith('youtube.com') || host.endsWith('youtube-nocookie.com')) {
+    if (
+      host === 'youtube.com'
+      || host.endsWith('.youtube.com')
+      || host === 'youtube-nocookie.com'
+      || host.endsWith('.youtube-nocookie.com')
+    ) {
       const fromPath = url.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{6,})/)?.[1];
       return url.searchParams.get('v') || fromPath || null;
     }
@@ -44,6 +50,61 @@ export const describeVideo = (value) => {
  * sharp; the 480x360 default is what looked blurry when stretched.
  */
 const YOUTUBE_POSTERS = ['maxresdefault', 'sddefault', 'hqdefault'];
+
+const FullscreenYouTube = ({ src, label, onClose }) => {
+  const closeRef = useRef(null);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement;
+    document.body.style.overflow = 'hidden';
+    closeRef.current?.focus();
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus?.();
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      className="fixed inset-0 z-[100] grid place-items-center bg-black"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <button
+        ref={closeRef}
+        type="button"
+        onClick={onClose}
+        aria-label="Close video"
+        className="absolute right-3 top-[max(.75rem,env(safe-area-inset-top))] z-10 grid h-11 w-11 place-items-center rounded-full bg-black/70 text-white ring-1 ring-white/30 transition hover:bg-white hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-site-accent sm:right-6 sm:top-6"
+      >
+        <X className="h-6 w-6" aria-hidden="true" />
+      </button>
+
+      <div className="h-full w-full overflow-hidden bg-black">
+        <iframe
+          className="h-full w-full"
+          src={src}
+          title={label}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+    </div>,
+    document.body,
+  );
+};
 
 /**
  * A 16:9 video that plays where it stands. Shows a poster and a play button
@@ -88,7 +149,7 @@ export const VideoEmbed = ({ url, label = 'Watch video', className, compact = fa
     else setPosterFailed(true);
   };
 
-  if (playing) {
+  if (playing && kind === 'drive') {
     return (
       <div className={cn('aspect-video overflow-hidden bg-site-ink', className)}>
         <iframe
@@ -103,43 +164,49 @@ export const VideoEmbed = ({ url, label = 'Watch video', className, compact = fa
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => setPlaying(true)}
-      className={cn(
-        'group relative block aspect-video w-full overflow-hidden bg-site-ink text-left',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-site-accent',
-        className,
-      )}
-      aria-label={`${label}: play on this page`}
-    >
-      {!posterFailed && (
-        <img
-          key={posterSrc}
-          src={posterSrc}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          // YouTube answers a missing size with a tiny grey placeholder that
-          // still counts as a successful load, so its width is checked too.
-          onLoad={(event) => {
-            if (kind === 'youtube' && event.currentTarget.naturalWidth <= 120) nextPoster();
-          }}
-          onError={nextPoster}
-          className="h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105"
-        />
-      )}
-      <span className="absolute inset-0 grid place-items-center bg-site-ink/20">
-        <span
-          className={cn(
-            'grid place-items-center rounded-full bg-white text-site-ink shadow-lg transition-transform duration-300 group-hover:scale-110',
-            compact ? 'h-12 w-12' : 'h-14 w-14 sm:h-16 sm:w-16',
-          )}
-        >
-          <Play className="ml-0.5 h-5 w-5 sm:h-6 sm:w-6" fill="currentColor" />
+    <>
+      <button
+        type="button"
+        onClick={() => setPlaying(true)}
+        className={cn(
+          'group relative block aspect-video w-full overflow-hidden bg-site-ink text-left',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-site-accent',
+          className,
+        )}
+        aria-label={`${label}: play on this page`}
+      >
+        {!posterFailed && (
+          <img
+            key={posterSrc}
+            src={posterSrc}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            // YouTube answers a missing size with a tiny grey placeholder that
+            // still counts as a successful load, so its width is checked too.
+            onLoad={(event) => {
+              if (kind === 'youtube' && event.currentTarget.naturalWidth <= 120) nextPoster();
+            }}
+            onError={nextPoster}
+            className="h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105"
+          />
+        )}
+        <span className="absolute inset-0 grid place-items-center bg-site-ink/20">
+          <span
+            className={cn(
+              'grid place-items-center rounded-full bg-white text-site-ink shadow-lg transition-transform duration-300 group-hover:scale-110',
+              compact ? 'h-12 w-12' : 'h-14 w-14 sm:h-16 sm:w-16',
+            )}
+          >
+            <Play className="ml-0.5 h-5 w-5 sm:h-6 sm:w-6" fill="currentColor" />
+          </span>
         </span>
-      </span>
-    </button>
+      </button>
+
+      {playing && kind === 'youtube' && (
+        <FullscreenYouTube src={embedSrc} label={label} onClose={() => setPlaying(false)} />
+      )}
+    </>
   );
 };
 

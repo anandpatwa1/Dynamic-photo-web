@@ -60,9 +60,8 @@ export const computePricing = (quote = {}) => {
 
   const auto = {};
   for (const key of KEYS) {
-    // The add-on is revenue, not studio cost. Include it in both customer
-    // prices so an existing MRP/selling comparison remains meaningful.
-    const addOnAmount = key === 'cost' ? 0 : effect;
+    // Providing an add-on always incurs its cost, even when free to the customer.
+    const addOnAmount = key === 'cost' ? toRupees((quote.addOn?.snapshot ?? quote.addOn)?.costPrice) : effect;
     auto[key] = Math.max(0, itemsTotal[key] + linesTotal[key] + addOnAmount);
   }
 

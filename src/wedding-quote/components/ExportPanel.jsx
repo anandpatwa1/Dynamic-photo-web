@@ -1,3 +1,4 @@
+import { canvasToPdf } from '../utils/exportPdf';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, MessageCircle, Save } from 'lucide-react';
@@ -18,6 +19,7 @@ const X = T.export;
  * The size readout is the real encoded blob size (debounced), not a guess.
  */
 export const ExportPanel = ({ quote, theme, studio, plan, defaults, canExport, onSave }) => {
+  const [format,setFormat]=useState('jpg');
   const [quality, setQuality] = useState(defaults?.quality ?? 0.9);
   const [widthPx, setWidthPx] = useState(defaults?.widthPx ?? 1600);
   const [estimate, setEstimate] = useState({ bytes: null, busy: false, error: null });
@@ -76,8 +78,9 @@ export const ExportPanel = ({ quote, theme, studio, plan, defaults, canExport, o
         if (!saved) return;
         current = saved;
       }
-      const blob = await getJpeg();
-      downloadBlob(blob, quoteFileName(current));
+      const canvas = await getCanvas();
+      const blob = format === 'pdf' ? await canvasToPdf(canvas) : format === 'png' ? await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('PNG failed')),'image/png')) : await getJpeg();
+      downloadBlob(blob, quoteFileName(current).replace(/\.jpg$/, `.${format}`));
       wqSettingsApi.saveLastUsedExport({ quality, widthPx, scale: size.scale }).catch(() => {});
     } catch {
       toast.error(X.failed);
@@ -121,7 +124,9 @@ export const ExportPanel = ({ quote, theme, studio, plan, defaults, canExport, o
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-ink-900">{X.title}</h3>
+      <h3 className="text-sm font-semibold text-ink-900">Download quotation</h3>
+      <label className="block text-sm">File format<select className="mt-1 h-10 w-full rounded-lg border px-2" value={format} onChange={e=>setFormat(e.target.value)}><option value="jpg">JPG — smaller file</option><option value="png">PNG — lossless image</option><option value="pdf">PDF — full poster page (image)</option></select></label>
+      <p className="text-xs text-ink-500">Quality controls JPG compression, not pixel dimensions. Size estimate and WhatsApp share use JPG. PNG is lossless; PDF embeds the rendered image.</p>
       <label className="block text-sm">
         <span className="flex justify-between text-ink-700"><span>{X.quality}</span><span className="tabular">{Math.round(quality * 100)}%</span></span>
         <input type="range" min="0.3" max="1" step="0.01" value={quality} onChange={(e) => setQuality(Number(e.target.value))} className="w-full accent-brand-500" aria-label={X.quality} />

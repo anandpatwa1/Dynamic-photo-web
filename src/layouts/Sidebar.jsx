@@ -73,17 +73,23 @@ export const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'Booking Calendar',
+    items: [
+      { to: CRM.wqBookings, end: true, label: 'Calendar', icon: CalendarDays, wqPerm: ['viewQuotes', 'createQuote', 'editQuote', 'manageMasters'], feature: BUSINESS_FEATURES.BOOKING_CALENDAR },
+      { to: `${CRM.wqBookings}/types`, label: 'Booking types & colours', icon: Palette, wqPerm: ['viewQuotes', 'createQuote', 'editQuote', 'manageMasters'], feature: BUSINESS_FEATURES.BOOKING_CALENDAR },
+    ],
+  },
+  {
     // Wedding Quote module: each item is gated by its module permission (A13).
     label: WQ.module,
     items: [
       { to: CRM.wqCreate, label: WQ.nav.create, icon: Sparkles, wqPerm: ['createQuote'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
       { to: CRM.wqQuotes, label: WQ.nav.all, icon: Heart, wqPerm: ['viewQuotes'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
-      { to: CRM.wqBookings, label: WQ.nav.bookings, icon: CalendarDays, wqPerm: ['viewQuotes', 'createQuote', 'editQuote', 'manageMasters'], feature: BUSINESS_FEATURES.BOOKING_CALENDAR },
       { to: CRM.wqItems, label: `${WQ.nav.mastersGroup} · ${WQ.nav.items}`, icon: ListChecks, wqPerm: ['manageMasters'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
       { to: CRM.wqSets, label: `${WQ.nav.mastersGroup} · ${WQ.nav.sets}`, icon: Layers, wqPerm: ['manageMasters'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
       { to: CRM.wqAddOns, label: `${WQ.nav.mastersGroup} · ${WQ.nav.addOns}`, icon: Gift, wqPerm: ['manageMasters'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
       { to: CRM.wqPresets, label: `${WQ.nav.mastersGroup} · ${WQ.nav.presets}`, icon: Gem, wqPerm: ['manageMasters'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
-      { to: CRM.wqThemes, label: `${WQ.nav.themesGroup} · ${WQ.nav.themes}`, icon: Palette, wqPerm: ['manageThemes'], feature: BUSINESS_FEATURES.THEME_LIBRARY },
+      { to: CRM.wqThemes, end: true, label: `${WQ.nav.themesGroup} · ${WQ.nav.themes}`, icon: Palette, wqPerm: ['manageThemes'], feature: BUSINESS_FEATURES.THEME_LIBRARY },
       { to: CRM.wqThemeAssignment, label: `${WQ.nav.themesGroup} · ${WQ.nav.dayAssignment}`, icon: CalendarRange, wqPerm: ['manageThemes'], feature: BUSINESS_FEATURES.THEME_LIBRARY },
       { to: CRM.wqSettings, label: WQ.nav.settings, icon: SlidersHorizontal, wqPerm: ['manageMasters', 'managePermissions'], feature: BUSINESS_FEATURES.WEDDING_QUOTES },
     ],
@@ -116,6 +122,7 @@ export const NAV_SECTIONS = [
 const NavItem = ({ item, onNavigate }) => (
   <NavLink
     to={item.to}
+    end={item.end}
     onClick={onNavigate}
     className={({ isActive }) =>
       cn(

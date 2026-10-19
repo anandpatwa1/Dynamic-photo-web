@@ -14,7 +14,7 @@ const HIGHLIGHTS = [
  * left (dark, gold-accented, echoing the letterhead) and the form on the right.
  */
 export const AuthLayout = () => (
-  <div className="flex min-h-screen bg-white">
+  <div className="flex min-h-[100svh] bg-white">
     <aside className="relative hidden w-[46%] shrink-0 overflow-hidden bg-ink-950 lg:flex lg:flex-col">
       {/* Warm gold light bloom + fine grid, echoing the printed letterhead. */}
       <div
@@ -79,9 +79,9 @@ export const AuthLayout = () => (
       </div>
     </aside>
 
-    <main className="flex flex-1 items-center justify-center px-6 py-12 sm:px-10">
-      <div className="w-full max-w-[400px]">
-        <div className="mb-10 lg:hidden">
+    <main className="flex min-w-0 flex-1 items-center justify-center px-6 py-6 sm:px-10 sm:py-12">
+      <div className="w-full min-w-0 max-w-[400px]">
+        <div className="mb-8 sm:mb-10 lg:hidden">
           <Logo size="md" />
         </div>
         <Outlet />

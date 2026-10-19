@@ -131,7 +131,7 @@ export const setAddOnFromMaster = (quote, master) => {
   const previous = q.addOn?.snapshot;
   if (previous?.includeInTotal) shiftPriceOverrides(q, -toRupees(previous.priceAmount));
   q.addOn = master
-    ? { snapshot: { addOnId: master._id, kind: master.kind, title: master.title, text: master.text ?? '', badge: master.badge ?? '', valueAmount: master.valueAmount ?? 0, priceEffect: master.priceEffect ?? 'none', priceAmount: master.priceAmount ?? 0, includeInTotal: false } }
+    ? { snapshot: { addOnId: master._id, kind: master.kind, title: master.title, text: master.text ?? '', badge: master.badge ?? '', valueAmount: master.valueAmount ?? 0, priceEffect: master.priceEffect ?? 'none', priceAmount: master.priceAmount ?? 0, costPrice: master.costPrice ?? 0, includeInTotal: false } }
     : { snapshot: null };
   for (const k of ['addOn.title', 'addOn.text', 'addOn.badge', 'addOn.price']) delete q.textOverrides?.[k];
   return recompute(q);

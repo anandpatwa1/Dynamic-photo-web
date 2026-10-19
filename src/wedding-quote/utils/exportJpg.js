@@ -4,7 +4,7 @@
  * shows. Fonts are inlined as data URIs and every theme image already is one,
  * so nothing cross-origin can taint the canvas.
  */
-import { embeddedFontCss } from './fonts';
+import { embeddedFontCss, registerBundledFonts, registerThemeFonts } from './fonts';
 
 const loadImage = (src) =>
   new Promise((resolve, reject) => {
@@ -16,12 +16,32 @@ const loadImage = (src) =>
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Serialises the node into an SVG data URL sized outW×outH. */
-export const nodeToSvgDataUrl = async (node, { width, height, outW, outH, theme }) => {
+/** Keep layout in design pixels; only the final canvas scales the image. */
+export const nodeToSvgDataUrl = async (node, { width, height, theme }) => {
+  if (!node) throw new Error('quote-not-ready');
+  const fontResults = await Promise.all([registerBundledFonts(), registerThemeFonts(theme)]);
+  if (fontResults.flat().some(face => face === null)) throw new Error('A required font failed to load. Check the theme font files before export.');
+  await document.fonts.ready;
   const css = await embeddedFontCss(theme);
-  const xml = new XMLSerializer().serializeToString(node);
+  const clone = node.cloneNode(true);
+  const sources = [node, ...node.querySelectorAll('*')];
+  const targets = [clone, ...clone.querySelectorAll('*')];
+  // The standalone SVG cannot inherit the page's reset or typography. Preserve
+  // these metrics so text wrapping and block heights match the measured plan.
+  const properties = ['box-sizing', 'font-family', 'font-size', 'font-weight',
+    'font-style', 'line-height', 'letter-spacing', 'word-spacing', 'white-space',
+    'overflow-wrap', 'word-break', 'text-transform', 'color'];
+  sources.forEach((source, index) => {
+    const computed = getComputedStyle(source);
+    for (const property of properties) {
+      targets[index].style.setProperty(property, computed.getPropertyValue(property));
+    }
+    targets[index].style.setProperty('-webkit-text-size-adjust', 'none');
+    targets[index].style.setProperty('text-size-adjust', 'none');
+  });
+  const xml = new XMLSerializer().serializeToString(clone);
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${outW}" height="${outH}" viewBox="0 0 ${width} ${height}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
     `<foreignObject x="0" y="0" width="${width}" height="${height}">` +
     `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;margin:0;padding:0">` +
     `<style>${css}</style>${xml}</div></foreignObject></svg>`;

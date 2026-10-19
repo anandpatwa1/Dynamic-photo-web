@@ -37,16 +37,18 @@ export const websiteApi = {
       .then(unwrap),
 
   portfolio: {
+    uploadVideo: (id, file) => api.post(`/website/portfolio/${id}/videos`, toForm({videos:file}), {...multipart, timeout:0}).then(unwrap),
+    removeVideo: (id, videoId) => api.delete(`/website/portfolio/${id}/videos/${videoId}`).then(unwrap),
     list: (params) => flatten(api.get('/website/portfolio', { params }).then(unwrapWithMeta)),
     get: (id) => api.get(`/website/portfolio/${id}`).then(unwrap),
     create: ({ file, slot, coverAlt, ...fields }) =>
       api
-        .post('/website/portfolio', toForm({ ...fields, slot, coverAlt, coverImage: file }), multipart)
+        .post('/website/portfolio', toForm({ ...fields, videoUrls: JSON.stringify(fields.videoUrls || []), slot, coverAlt, coverImage: file }), multipart)
         .then(unwrap),
     update: (id, payload) => api.patch(`/website/portfolio/${id}`, payload).then(unwrap),
-    updateCover: (id, { file, slot, alt }) =>
+    updateCover: (id, { file, slot, alt, span }) =>
       api
-        .patch(`/website/portfolio/${id}/cover`, toForm({ slot, alt, image: file }), multipart)
+        .patch(`/website/portfolio/${id}/cover`, toForm({ slot, alt, span, image: file }), multipart)
         .then(unwrap),
     createAlbum: (id, payload) => api.post(`/website/portfolio/${id}/albums`, payload).then(unwrap),
     updateAlbum: (id, albumId, payload) =>
@@ -59,9 +61,8 @@ export const websiteApi = {
       const keepShape = entries[0]?.keepShape !== false;
 
       /*
-       * The server holds every photo of a request in memory, and DSLR frames
-       * are 8-30 MB each. Sending them two at a time keeps memory flat however
-       * many are chosen, and one failure no longer discards the whole batch.
+       * Uploads use temporary files on the server. Small batches also bound
+       * image processing work and preserve earlier batches if a later one fails.
        */
       const BATCH = 2;
       let last = null;
@@ -106,6 +107,8 @@ export const websiteApi = {
   sections: {
     list: () => api.get('/website/sections').then(unwrap),
     create: (payload) => api.post('/website/sections', payload).then(unwrap),
+    previewYouTubePlaylist: (url) =>
+      api.post('/website/sections/youtube-playlist/preview', { url }).then(unwrap),
     update: (id, payload) => api.patch(`/website/sections/${id}`, payload).then(unwrap),
     reorder: (order) => api.patch('/website/sections/reorder', { order }).then(unwrap),
     remove: (id) => api.delete(`/website/sections/${id}`).then(unwrap),
@@ -128,12 +131,13 @@ export const websiteApi = {
     update: (id, payload) => api.patch(`/website/packages/${id}`, payload).then(unwrap),
     uploadImage: (id, { file, slot, alt }) =>
       api
-        .patch(`/website/packages/${id}/image`, toForm({ slot, alt, image: file }), multipart)
+        .patch(`/website/packages/${id}/image`, toForm({ slot, alt, span, image: file }), multipart)
         .then(unwrap),
     reorder: (order) => api.patch('/website/packages/reorder', { order }).then(unwrap),
   },
 
   inquiries: {
+    remove: (id) => api.delete(`/website/inquiries/${id}`).then(unwrap),
     list: (params) => flatten(api.get('/website/inquiries', { params }).then(unwrapWithMeta)),
     setStatus: (id, status) =>
       api.patch(`/website/inquiries/${id}/status`, { status }).then(unwrap),

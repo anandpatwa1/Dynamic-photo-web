@@ -1,3 +1,5 @@
+import { ThemeBuilder } from '../themes/ThemeBuilder';
+import { useTheme } from '../../hooks/useTheme';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -48,6 +50,7 @@ const EditorInner = () => {
   ); // fields | export | null
   const [zoom, setZoom] = useState(0.5);
   const [plan, setPlan] = useState(null);
+  const [designSeed,setDesignSeed]=useState(null);
   const [saving, setSaving] = useState(false);
   const [breakdown, setBreakdown] = useState(false);
   const [addOns, setAddOns] = useState([]);
@@ -84,10 +87,14 @@ const EditorInner = () => {
     if (quote && !quote.themeId && assigned.defaultThemeId && canEdit) apply((q) => ({ ...q, themeId: assigned.defaultThemeId }));
   }, [quote?.themeId, assigned.defaultThemeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const theme = useMemo(() => {
+  const themeSummary = useMemo(() => {
+    if (quote?.themeId) return themes.find(t => String(t._id) === String(quote.themeId)) ?? { _id: quote.themeId };
     const byId = themes.find((t) => t._id === String(quote?.themeId)) ?? themes.find((t) => t._id === String(assigned.defaultThemeId));
     return byId ?? themes[0] ?? BUILTIN_THEMES[0];
   }, [themes, quote?.themeId, assigned.defaultThemeId]);
+
+  const { theme: resolvedTheme, error: themeError } = useTheme(themeSummary);
+  const theme = resolvedTheme ?? BUILTIN_THEMES[0];
 
   // ---- autosave -----------------------------------------------------------
   const save = useCallback(async (extra = {}) => {
@@ -183,11 +190,13 @@ const EditorInner = () => {
   if (loadError) return <EmptyState title={loadError} action={<Link to={CRM.wqQuotes}>{T.list.title}</Link>} />;
   if (!quote) return <PageLoader />;
 
+  if (!resolvedTheme) return themeError ? <EmptyState title={themeError} /> : <PageLoader label="Loading design" />;
+
   const blockOv = selected ? quote.layout?.blockOverrides?.[selected] ?? {} : null;
   const dirty = isDirty(state);
 
   return (
-    <div className="-mx-4 -my-6 flex min-h-[calc(100vh-4rem)] flex-col sm:-mx-6 lg:-mx-8 lg:-my-8">
+    <div className="-mx-3 -my-5 flex min-w-0 min-h-[calc(100svh-4rem)] flex-col min-[360px]:-mx-4 sm:-mx-6 sm:-my-6 lg:-mx-8 lg:-my-8">
       {/* toolbar */}
       <div className="sticky top-16 z-20 flex flex-wrap items-center gap-1.5 border-b border-ink-200/70 bg-white/95 px-3 py-2 backdrop-blur">
         <Button as={Link} to={CRM.wqQuotes} variant="ghost" size="sm" iconOnly icon={ArrowLeft} aria-label={T.common.back} />
@@ -202,7 +211,7 @@ const EditorInner = () => {
         <Button size="sm" variant="ghost" iconOnly icon={ZoomIn} aria-label={E.zoomIn} onClick={() => setZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)))} />
         <Button size="sm" variant="ghost" iconOnly icon={Maximize2} aria-label={E.fit} onClick={fit} />
         {canEdit && <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => apply(ops.resetQuoteToAuto)}>{E.resetQuote}</Button>}
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-ink-100 pt-2 lg:ml-auto lg:w-auto lg:border-0 lg:pt-0">
         <span className={cn('text-xs', dirty ? 'text-warning-700' : 'text-ink-400')} aria-live="polite">{saving ? T.common.saving : dirty ? T.common.unsaved : T.common.saved}</span>
         {canEdit && <Button size="sm" variant="secondary" icon={ArrowLeft} onClick={async () => {
           if (dirty && !await save()) return;
@@ -219,7 +228,10 @@ const EditorInner = () => {
         <Button size="sm" variant={panel === 'fields' ? 'dark' : 'ghost'} iconOnly icon={PanelRight}
           aria-label={E.panel} aria-pressed={panel === 'fields'} className="hidden lg:inline-flex"
           onClick={() => setPanel(panel === 'fields' ? null : 'fields')} />
-        {perms.exportJpg && <Button size="sm" variant={panel === 'export' ? 'dark' : 'primary'} icon={Download} onClick={() => setPanel(panel === 'export' ? null : 'export')}>JPG</Button>}
+        {perms.exportJpg && <Button size="sm" variant={panel === 'export' ? 'dark' : 'primary'} icon={Download}
+          className="order-first w-full lg:order-none lg:w-auto"
+          aria-expanded={panel === 'export'}
+          onClick={() => setPanel(panel === 'export' ? null : 'export')}>{T.export.downloadJpg}</Button>}
         </div>
       </div>
 
@@ -243,9 +255,9 @@ const EditorInner = () => {
         </div>
       )}
 
-      <div className="flex flex-1 flex-col lg:flex-row">
+      <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
         {/* stage */}
-        <div ref={stageRef} className="flex-1 overflow-auto bg-ink-100/70 p-4" onClick={() => setSelected(null)}>
+        <div ref={stageRef} className="min-w-0 flex-1 overflow-auto bg-ink-100/70 p-4" onClick={() => setSelected(null)}>
           <div className="mx-auto shadow-xl" style={{ width: DESIGN_WIDTH * zoom, height: (plan?.height ?? DESIGN_WIDTH) * zoom }}>
             <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: DESIGN_WIDTH }}>
               <QuoteCanvas
@@ -308,6 +320,8 @@ const EditorInner = () => {
         )}
       </div>
 
+      {perms.manageThemes && <Button className="m-3 self-start" variant="secondary" onClick={()=>setDesignSeed({...theme,_id:undefined,definition:{...theme.definition,schemaVersion:2,layout:{...theme.definition.layout,blockOverrides:quote.layout?.blockOverrides??{}}}})}>Save layout as theme</Button>}
+      <ThemeBuilder open={Boolean(designSeed)} seed={designSeed} onClose={()=>setDesignSeed(null)} onSaved={()=>reduxDispatch(fetchWqThemes())} />
       <BreakdownDrawer quoteId={quote._id} open={breakdown} onClose={() => setBreakdown(false)} refreshKey={state.savedVersion} />
     </div>
   );

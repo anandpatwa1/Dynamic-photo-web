@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Clapperboard, ExternalLink, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clapperboard, ExternalLink, Plus, RefreshCw, Trash2, Youtube } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import {
@@ -27,6 +27,11 @@ const COLUMN_OPTIONS = [
   { value: '4', label: '4 videos per row' },
 ];
 
+const SOURCE_OPTIONS = [
+  { value: 'manual', label: 'Add individual video links' },
+  { value: 'youtube_playlist', label: 'Import a YouTube playlist' },
+];
+
 // Only sections that really appear as a block on the page can anchor a new one.
 const PLACEMENT_OPTIONS = Object.entries(SECTION_LABELS).map(([value, label]) => ({
   value,
@@ -35,7 +40,19 @@ const PLACEMENT_OPTIONS = Object.entries(SECTION_LABELS).map(([value, label]) =>
 
 const KIND_LABEL = { youtube: 'YouTube', drive: 'Google Drive', other: 'Other link' };
 
-const emptySection = { title: '', eyebrow: '', description: '', columns: 3, placeAfter: 'portfolio', showInNav: false, navLabel: '', isPublished: true, videos: [] };
+const emptySection = {
+  title: '',
+  eyebrow: '',
+  description: '',
+  videoSource: 'manual',
+  playlistUrl: '',
+  columns: 3,
+  placeAfter: 'portfolio',
+  showInNav: false,
+  navLabel: '',
+  isPublished: true,
+  videos: [],
+};
 
 /** Turns a pasted block into videos: one per line, optionally `Title | link`. */
 const parsePastedLinks = (text) =>
@@ -117,6 +134,7 @@ export const WebsiteSections = () => {
   const [pasted, setPasted] = useState('');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [importingPlaylist, setImportingPlaylist] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -171,6 +189,8 @@ export const WebsiteSections = () => {
         title: editing.title,
         eyebrow: editing.eyebrow ?? '',
         description: editing.description ?? '',
+        videoSource: editing.videoSource ?? 'manual',
+        playlistUrl: editing.playlistUrl ?? '',
         columns: Number(editing.columns),
         placeAfter: editing.placeAfter,
         showInNav: editing.showInNav,
@@ -245,6 +265,24 @@ export const WebsiteSections = () => {
     toast.success(`${added.length} video${added.length > 1 ? 's' : ''} added. Press Save to publish them.`);
   };
 
+  const importPlaylist = async () => {
+    const url = editing.playlistUrl?.trim();
+    if (!url) return;
+    setImportingPlaylist(true);
+    try {
+      const { playlist } = await websiteApi.sections.previewYouTubePlaylist(url);
+      setField({
+        playlistUrl: playlist.url,
+        videos: playlist.videos,
+      });
+      toast.success(`${playlist.videos.length} videos imported. Press Save to publish them.`);
+    } catch (error) {
+      toast.error(error?.response?.data?.message ?? 'Could not load that YouTube playlist.');
+    } finally {
+      setImportingPlaylist(false);
+    }
+  };
+
   if (loading) return <PageLoader label="Loading sections" />;
 
   return (
@@ -283,6 +321,9 @@ export const WebsiteSections = () => {
                     <Badge tone="neutral" size="sm">
                       {section.videos?.length ?? 0} video{section.videos?.length === 1 ? '' : 's'}
                     </Badge>
+                    {section.videoSource === 'youtube_playlist' && (
+                      <Badge tone="brand" size="sm">YouTube playlist</Badge>
+                    )}
                     {section.showInNav && (
                       <Badge tone="brand" size="sm">
                         In menu
@@ -294,7 +335,9 @@ export const WebsiteSections = () => {
                     {PLACEMENT_OPTIONS.find((option) => option.value === section.placeAfter)?.label ?? 'After Portfolio'} · {section.columns} per row on a laptop
                   </p>
                   {section.isPublished && (section.videos?.length ?? 0) === 0 && (
-                    <p className="mt-1 text-sm text-warning-700">Add at least one video, or the section stays off the website.</p>
+                    <p className="mt-1 text-sm text-warning-700">
+                      {section.videoSource === 'youtube_playlist' ? 'Import the playlist videos, or the section stays off the website.' : 'Add at least one video, or the section stays off the website.'}
+                    </p>
                   )}
                 </div>
 
@@ -358,7 +401,11 @@ export const WebsiteSections = () => {
                 <Button variant="secondary" onClick={requestClose}>
                   Close
                 </Button>
-                <Button onClick={save} loading={saving} disabled={!dirty || !editing.title.trim()}>
+                <Button
+                  onClick={save}
+                  loading={saving}
+                  disabled={!dirty || !editing.title.trim() || (editing.videoSource === 'youtube_playlist' && !editing.playlistUrl)}
+                >
                   Save and publish
                 </Button>
               </div>
@@ -379,6 +426,14 @@ export const WebsiteSections = () => {
               <Select label="Layout on a laptop" options={COLUMN_OPTIONS} value={String(editing.columns)} onChange={(event) => setField({ columns: Number(event.target.value) })} hint="Phones always show one video per row, tablets two." />
             </div>
 
+            <Select
+              label="Video source"
+              options={SOURCE_OPTIONS}
+              value={editing.videoSource ?? 'manual'}
+              onChange={(event) => setField({ videoSource: event.target.value })}
+              hint="Use a playlist to bring its latest public videos in together."
+            />
+
             <div className="grid gap-4 rounded-xl border border-ink-200 p-4 sm:grid-cols-2">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-base text-ink-800">Show on the website</span>
@@ -393,6 +448,72 @@ export const WebsiteSections = () => {
               )}
             </div>
 
+            {editing.videoSource === 'youtube_playlist' ? (
+              <div className="space-y-4 rounded-xl border border-red-100 bg-red-50/40 p-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-600 text-white">
+                    <Youtube className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h4 className="font-semibold text-ink-900">YouTube playlist</h4>
+                    <p className="mt-0.5 text-sm text-ink-600">
+                      Paste a public or unlisted playlist. Importing again refreshes the saved video list.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <Input
+                    wrapperClassName="min-w-0 flex-1"
+                    label="Playlist link"
+                    value={editing.playlistUrl ?? ''}
+                    placeholder="https://www.youtube.com/playlist?list=..."
+                    onChange={(event) => setField({ playlistUrl: event.target.value })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') importPlaylist();
+                    }}
+                  />
+                  <Button
+                    className="sm:mb-px"
+                    icon={RefreshCw}
+                    loading={importingPlaylist}
+                    disabled={!editing.playlistUrl?.trim()}
+                    onClick={importPlaylist}
+                  >
+                    {editing.videos.length ? 'Refresh playlist' : 'Import playlist'}
+                  </Button>
+                </div>
+
+                {editing.videos.length > 0 ? (
+                  <div>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-ink-800">{editing.videos.length} imported videos</p>
+                      <a href={editing.playlistUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 underline">
+                        Open playlist <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                      </a>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {editing.videos.map((video, index) => {
+                        const info = describeVideo(video.url);
+                        return (
+                          <div key={`${video.url}-${index}`} className="flex min-w-0 items-center gap-3 rounded-xl border border-ink-200 bg-white p-2.5">
+                            <img src={`https://i.ytimg.com/vi/${info.id}/mqdefault.jpg`} alt="" loading="lazy" className="h-14 w-24 shrink-0 rounded-lg object-cover" />
+                            <div className="min-w-0">
+                              <p className="line-clamp-2 text-sm font-medium text-ink-800">{video.title || `Video ${index + 1}`}</p>
+                              <p className="mt-1 text-xs text-ink-500">Video {index + 1}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-red-200 bg-white/70 p-5 text-center text-sm text-ink-600">
+                    Paste the playlist link and press Import playlist.
+                  </p>
+                )}
+              </div>
+            ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <h4 className="text-md font-semibold text-ink-900">Videos ({editing.videos.length})</h4>
@@ -429,6 +550,7 @@ export const WebsiteSections = () => {
                 YouTube is best for long films. Google Drive videos also work, but Drive can limit playback when many people watch.
               </p>
             </div>
+            )}
           </div>
         )}
       </Modal>

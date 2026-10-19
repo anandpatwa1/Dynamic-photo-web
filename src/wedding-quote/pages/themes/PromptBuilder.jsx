@@ -1,0 +1,9 @@
+import { useState } from 'react';
+import toast from 'react-hot-toast';
+import { Button, Input, Modal } from '@/components/ui';
+import { buildAiPrompt, SIMPLE_THEME } from '../../utils/engine/themeSchema';
+import { copyText, downloadBlob } from '../../utils/download';
+export const PromptBuilder=({open,onClose})=>{
+ const [options,setOptions]=useState({mode:'simple',style:'Premium, clean wedding studio',palette:'Ivory, charcoal and gold',language:'English',days:'1, 3, 5, 7, 10',density:'comfortable',reference:true});
+ return <Modal open={open} onClose={onClose} title="AI theme prompt" size="xl" footer={<Button onClick={async()=>{if(await copyText(buildAiPrompt(options)))toast.success('Prompt copied')}}>Copy complete prompt</Button>}><div className="space-y-3">{['mode','density'].map(k=><label key={k} className="block text-sm">{k}<select className="ml-3 rounded border p-2" value={options[k]} onChange={e=>setOptions({...options,[k]:e.target.value})}>{(k==='mode'?['simple','advanced','text-only']:['compact','comfortable']).map(v=><option key={v}>{v}</option>)}</select></label>)}{['style','palette','language','days'].map(k=><Input key={k} label={k} value={options[k]} onChange={e=>setOptions({...options,[k]:e.target.value})}/>)}<label className="flex gap-2"><input type="checkbox" checked={options.reference} onChange={e=>setOptions({...options,reference:e.target.checked})}/>I will attach a reference image to the AI</label><p className="text-sm text-ink-500">Simple output needs only JSON. Advanced output includes every real asset. Text-only output can be pasted with a filename-to-SVG mapping in Import.</p><Button variant="secondary" onClick={()=>downloadBlob(new Blob([JSON.stringify(SIMPLE_THEME,null,2)],{type:'application/json'}),'theme.json')}>Download JSON-only example</Button></div></Modal>;
+};

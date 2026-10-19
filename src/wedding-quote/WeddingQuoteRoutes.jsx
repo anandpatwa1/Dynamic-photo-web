@@ -13,6 +13,7 @@ import { BUSINESS_FEATURES } from '@/constants';
 const QuoteList = lazy(() => import('./pages/quotes/QuoteList'));
 const CreateWizard = lazy(() => import('./pages/quotes/CreateWizard'));
 const QuoteEditor = lazy(() => import('./pages/quotes/QuoteEditor'));
+const BookingTypes = lazy(() => import('./pages/bookings/BookingTypes'));
 const BookingCalendar = lazy(() => import('./pages/bookings/BookingCalendar'));
 const ItemsPage = lazy(() => import('./pages/masters/MastersPages').then((m) => ({ default: m.ItemsPage })));
 const SetsPage = lazy(() => import('./pages/masters/MastersPages').then((m) => ({ default: m.SetsPage })));
@@ -31,6 +32,8 @@ const WeddingQuoteRoutes = () => (
         <Route path="quotes" element={<QuoteList />} />
         <Route element={<ProtectedRoute feature={BUSINESS_FEATURES.BOOKING_CALENDAR} />}>
           <Route path="bookings" element={<BookingCalendar />} />
+          <Route path="bookings/types" element={<BookingTypes />} />
+          <Route path="bookings/type/:typeKey" element={<BookingCalendar />} />
         </Route>
         <Route path="quotes/:id/edit" element={<QuoteEditor />} />
         <Route path="quotes/:id/setup" element={<CreateWizard />} />

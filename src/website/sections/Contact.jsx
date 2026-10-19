@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Clock, Facebook, Instagram, Mail, MapPin, Phone, Youtube } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Reveal } from '../components/Reveal';
 import { useSection, useSiteContent } from '../content/SiteContent';
 import { useEnquiry } from '../content/EnquiryContext';
 import { publicApi } from '../api/publicApi';
+import { contactLinks } from '../utils/contactLinks';
+import { EnquiryFollowUp } from '../components/EnquiryFollowUp';
 
 const SOCIAL_ICONS = { instagram: Instagram, facebook: Facebook, youtube: Youtube };
 
@@ -38,6 +40,10 @@ export const Contact = () => {
 
   const [values, setValues] = useState(EMPTY);
   const [errors, setErrors] = useState({});
+  const [followUp, setFollowUp] = useState(null);
+  const closeFollowUp = useCallback(() => setFollowUp(null), []);
+  const selectedPackage = packages?.items?.find(item => item.id === selectedPackageId);
+  const directLinks = contactLinks(contact, values, selectedPackage?.name);
   const [status, setStatus] = useState('idle'); // idle | sending | sent | error
   const mountedAt = useRef(Date.now());
   const honeypot = useRef(null);
@@ -81,6 +87,7 @@ export const Contact = () => {
         _elapsedMs: Date.now() - mountedAt.current,
       });
 
+      setFollowUp(contactLinks(contact, values, chosen?.name));
       setStatus('sent');
       setValues(EMPTY);
       setSelectedPackageId('');
@@ -328,6 +335,11 @@ export const Contact = () => {
                 {status === 'sending' ? 'Sending…' : 'Send Enquiry'}
               </button>
 
+              {directLinks.whatsapp && <a href={directLinks.whatsapp} target="_blank" rel="noopener noreferrer"
+                className="inline-flex min-h-[44px] items-center justify-center border border-site-ink px-6 py-3 text-site-eyebrow font-medium uppercase text-site-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-site-accent sm:ml-3">
+                Enquire through WhatsApp
+              </a>}
+
               {/* Announced to screen readers without stealing focus. */}
               <p role="status" aria-live="polite" className="min-h-[1.5rem] text-sm">
                 {status === 'sent' && (
@@ -345,6 +357,7 @@ export const Contact = () => {
           </Reveal>
         </div>
       </div>
+      {followUp && <EnquiryFollowUp links={followUp} onClose={closeFollowUp}/>}
     </section>
   );
 };

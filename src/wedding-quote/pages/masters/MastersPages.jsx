@@ -38,11 +38,12 @@ export const SetsPage = () => (
 
 export const AddOnsPage = () => (
   <MasterPage crud={wqAddOns} service={wqMasters.addOns} title={T.addOns.title} description={T.addOns.description} addLabel={T.addOns.add} emptyText={T.addOns.empty} Form={AddOnForm}
-    columns={() => [
+    columns={(perms) => [
       { key: 'title', header: T.addOns.titleField, render: (r) => (
         <div><p className="font-medium text-ink-900">{r.badge && <Badge size="sm" className="mr-2">{r.badge}</Badge>}{r.title}</p><p className="text-xs text-ink-500">{r.text}</p></div>
       ) },
       { key: 'kind', header: T.addOns.kind, render: (r) => T.addOns.kinds[r.kind] ?? r.kind },
+      ...(perms.viewCosting ? [{ key: 'costPrice', header: T.common.costPrice, align: 'right', render: (r) => formatINR(r.costPrice ?? 0) }] : []),
       { key: 'priceEffect', header: T.addOns.priceEffect, render: (r) => (Number(r.priceAmount) > 0 ? `Extra ${formatINR(r.priceAmount)}` : '—') },
     ]} />
 );

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Ban, Mail, MessageSquare, Phone, UserPlus } from 'lucide-react';
+import { ArrowRight, Ban, Mail, MessageSquare, Phone, Trash2, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import {
@@ -39,20 +39,25 @@ export const Inquiries = () => {
   const [inquiries, setInquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [converting, setConverting] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { inquiries: rows } = await websiteApi.inquiries.list({ status: status || undefined });
+      const { inquiries: rows, meta } = await websiteApi.inquiries.list({ status: status || undefined, page });
+      if (page > 1 && page > meta.totalPages) { setPage(meta.totalPages); return; }
       setInquiries(rows);
+      setPagination(meta);
     } catch (error) {
       toast.error(error?.response?.data?.message ?? 'Could not load enquiries.');
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [status, page]);
 
   useEffect(() => {
     load();
@@ -89,6 +94,19 @@ export const Inquiries = () => {
     }
   };
 
+  const remove = async () => {
+    if (!deleting || busyId) return;
+    setBusyId(deleting._id);
+    try {
+      await websiteApi.inquiries.remove(deleting._id);
+      setDeleting(null);
+      toast.success('Enquiry deleted.');
+      await load();
+    } catch (error) {
+      toast.error(error?.response?.data?.message ?? 'Could not delete this enquiry.');
+    } finally { setBusyId(null); }
+  };
+
   if (loading && inquiries.length === 0) return <PageLoader label="Loading enquiries" />;
 
   return (
@@ -102,7 +120,7 @@ export const Inquiries = () => {
         <Select
           options={STATUS_FILTERS}
           value={status}
-          onChange={(event) => setStatus(event.target.value)}
+          onChange={(event) => { setStatus(event.target.value); setPage(1); }}
           aria-label="Filter enquiries by status"
           className="w-56"
         />
@@ -166,6 +184,10 @@ export const Inquiries = () => {
                     </div>
 
                     <div className="flex shrink-0 flex-wrap gap-2">
+                      <Button size="sm" variant="danger-soft" icon={Trash2} disabled={busy}
+                        onClick={() => setDeleting(inquiry)} aria-label={`Delete enquiry from ${inquiry.name}`}>
+                        Delete
+                      </Button>
                       {inquiry.client ? (
                         <Button
                           as={Link}
@@ -216,6 +238,21 @@ export const Inquiries = () => {
           })}
         </ul>
       )}
+
+      {pagination && pagination.totalPages > 1 && (
+        <nav aria-label="Enquiry pages" className="mt-6 flex items-center justify-end gap-3">
+          <Button variant="secondary" disabled={loading || !pagination.hasPrevPage} onClick={() => setPage(current => current - 1)}>Previous</Button>
+          <span className="text-sm text-ink-600">Page {page} of {pagination.totalPages}</span>
+          <Button variant="secondary" disabled={loading || !pagination.hasNextPage} onClick={() => setPage(current => current + 1)}>Next</Button>
+        </nav>
+      )}
+
+      <ConfirmDialog
+        open={Boolean(deleting)} onClose={() => setDeleting(null)} onConfirm={remove}
+        title="Delete this enquiry?" loading={Boolean(deleting && busyId === deleting._id)}
+        message={deleting ? `Delete the enquiry from ${deleting.name}? This cannot be undone. Any linked CRM client will be kept.` : ''}
+        confirmLabel="Delete enquiry"
+      />
 
       <ConfirmDialog
         open={Boolean(converting)}

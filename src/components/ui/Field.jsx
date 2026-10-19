@@ -5,7 +5,8 @@ import { cn } from '@/utils/cn';
 /** Base control styling shared by Input, Textarea and Select. */
 export const controlClasses = ({ hasError, hasLeftIcon, hasRightIcon } = {}) =>
   cn(
-    'block w-full rounded-xl bg-white text-base text-ink-900 shadow-xs',
+    // Keep phone controls at 16px so iOS does not zoom when they receive focus.
+    'block w-full rounded-xl bg-white text-[16px] sm:text-base text-ink-900 shadow-xs',
     'ring-1 ring-inset ring-ink-200 placeholder:text-ink-400',
     'transition-all duration-150 ease-smooth',
     'focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500',

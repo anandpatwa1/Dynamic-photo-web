@@ -69,15 +69,8 @@ const Gallery = ({ images }) => {
   );
 };
 
-/**
- * The film sits at about half the page width on desktop so a low-resolution
- * poster is never stretched across the whole screen.
- */
 const VideoPlayer = ({ url, label = 'Watch video' }) => (
-  <div className="mt-7">
-    <VideoEmbed url={url} label={label} className="mx-auto w-full md:w-4/5 lg:w-1/2" />
-    <span className="sr-only">{label}</span>
-  </div>
+  <VideoEmbed url={url} label={label} className="w-full" />
 );
 
 const Skeleton = () => (
@@ -168,8 +161,8 @@ export const PortfolioDetail = () => {
           {item.description && <p className="mt-6 max-w-2xl whitespace-pre-line text-site-body">{item.description}</p>}
         </Reveal>
 
-        <Reveal delay={120} className="mt-10 sm:mt-12">
-          <ZoomTile image={item.coverImage} index={0} onOpen={setCoverOpen} ratio="16 / 9" priority />
+        <Reveal delay={120} className="mx-auto mt-10 max-w-3xl sm:mt-12">
+          <ZoomTile image={item.coverImage} index={0} onOpen={setCoverOpen} ratio="4 / 3" imgClassName="object-contain" className="bg-transparent" sizes="(min-width: 768px) 768px, 100vw" priority />
         </Reveal>
         <Lightbox
           images={item.coverImage ? [item.coverImage] : []}
@@ -178,21 +171,24 @@ export const PortfolioDetail = () => {
           onIndexChange={setCoverOpen}
         />
 
-        {item.videoUrl && <VideoPlayer url={item.videoUrl} label="Watch film" />}
+        <div className="mt-8 grid gap-6 md:grid-cols-2">
+          {[...new Set([item.videoUrl, ...(item.videoUrls || [])].filter(Boolean))].map((url,i)=><VideoPlayer key={url} url={url} label={`Watch film ${i+1}`} />)}
+          {(item.videos || []).map((video,i)=><video key={video.url} controls playsInline preload="metadata" className="aspect-video w-full rounded-xl bg-black object-contain" src={video.url} aria-label={video.title || `Film ${i+1}`}/>)}
+        </div>
 
         {albums.length > 0 ? (
-          <div className="mt-16 space-y-16 sm:mt-20 sm:space-y-20">
+          <div className="mt-16 grid gap-x-6 gap-y-16 md:grid-cols-2 sm:mt-20">
             {albums.map((album) => (
-              <section key={album.id}>
+              <section key={album.id} className={album.images?.length ? "md:col-span-2" : "min-w-0"}>
                 <Reveal>
                   <h2 className="break-words font-serif text-site-h2 font-light text-site-ink">{album.title}</h2>
                 </Reveal>
-                {album.videoUrl && <VideoPlayer url={album.videoUrl} label={`Watch ${album.title} video`} />}
+                {album.videoUrl && <div className={`mt-7 ${album.images?.length ? "md:w-1/2 md:pr-3" : ""}`}><VideoPlayer url={album.videoUrl} label={`Watch ${album.title} video`} /></div>}
                 <Gallery images={album.images} />
               </section>
             ))}
             {looseGallery.length > 0 && (
-              <section>
+              <section className="md:col-span-2">
                 <Reveal>
                   <h2 className="font-serif text-site-h2 font-light text-site-ink">More moments</h2>
                 </Reveal>
@@ -204,7 +200,7 @@ export const PortfolioDetail = () => {
           <Gallery images={looseGallery} />
         )}
 
-        {!hasAnyPhotos && !item.videoUrl && (
+        {!hasAnyPhotos && !item.videoUrl && !item.videoUrls?.length && !item.videos?.length && (
           <p className="mt-16 text-center text-site-body text-site-muted">More photographs from this story are coming soon.</p>
         )}
       </article>

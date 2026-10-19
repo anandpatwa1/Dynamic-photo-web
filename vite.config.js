@@ -10,11 +10,13 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    host: '0.0.0.0',
+    port: 5174,
+    strictPort: true,
     proxy: {
       // Lets the SPA call same-origin `/api/...` in dev without CORS friction.
-      '/api': { target: 'http://localhost:5000', changeOrigin: true },
-      '/uploads': { target: 'http://localhost:5000', changeOrigin: true },
+      '/api': { target: 'http://localhost:5100', changeOrigin: true },
+      '/uploads': { target: 'http://localhost:5100', changeOrigin: true },
     },
   },
   build: {

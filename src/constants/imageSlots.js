@@ -50,8 +50,26 @@ export const IMAGE_SLOTS = {
     minHeight: 1200,
     orientation: ORIENTATION.PORTRAIT,
     autoCrop: true,
-    maxBytes: 8 * MB,
+    maxBytes: Infinity,
     variants: CARD_LADDER,
+  },
+  portfolioCoverStandard: {
+    id: 'portfolioCoverStandard', label: 'Portfolio Cover — Standard',
+    width: 1200, height: 1500, aspect: 1200 / 1500, tolerance: 0.05,
+    minWidth: 900, minHeight: 900, orientation: ORIENTATION.PORTRAIT,
+    autoCrop: true, maxBytes: Infinity, variants: CARD_LADDER,
+  },
+  portfolioCoverTall: {
+    id: 'portfolioCoverTall', label: 'Portfolio Cover — Tall',
+    width: 1200, height: 1600, aspect: 1200 / 1600, tolerance: 0.05,
+    minWidth: 900, minHeight: 900, orientation: ORIENTATION.PORTRAIT,
+    autoCrop: true, maxBytes: Infinity, variants: CARD_LADDER,
+  },
+  portfolioCoverWide: {
+    id: 'portfolioCoverWide', label: 'Portfolio Cover — Wide',
+    width: 1600, height: 1200, aspect: 1600 / 1200, tolerance: 0.05,
+    minWidth: 900, minHeight: 900, orientation: ORIENTATION.LANDSCAPE,
+    autoCrop: true, maxBytes: Infinity, variants: CARD_LADDER,
   },
   galleryPortrait: {
     id: 'galleryPortrait',
@@ -65,7 +83,7 @@ export const IMAGE_SLOTS = {
     minHeight: 1350,
     orientation: ORIENTATION.PORTRAIT,
     autoCrop: true,
-    maxBytes: 8 * MB,
+    maxBytes: Infinity,
     variants: CARD_LADDER,
   },
   galleryLandscape: {
@@ -80,7 +98,7 @@ export const IMAGE_SLOTS = {
     minHeight: 900,
     orientation: ORIENTATION.LANDSCAPE,
     autoCrop: true,
-    maxBytes: 8 * MB,
+    maxBytes: Infinity,
     variants: CARD_LADDER,
   },
   square: {
