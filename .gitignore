@@ -1,0 +1,70 @@
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/install-state.gz
+
+# ─── Build output ─────────────────────────────────────────────────────────────
+dist/
+/dist
+build/
+.vite/
+*.tsbuildinfo
+/server/Archive.zip
+/server-deploy.zip
+
+# ─── Environment ──────────────────────────────────────────────────────────────
+# These hold real secrets — JWT signing keys, the Mongo URI, Cloudinary
+# credentials. The committed `.env.example` files document the shape instead.
+.env
+.env.*
+!.env.example
+!client/.env.production
+
+# ─── Runtime artefacts ────────────────────────────────────────────────────────
+# Branding assets land here when Cloudinary is not configured. It is user
+# content, not source.
+# Keep the currently referenced local assets deployable until they have been
+# migrated to Cloudinary. Run `npm run uploads:clean` before committing them.
+# server/uploads/
+
+# Sample PDFs written by `tests/fixtures/render-sample.js`.
+tmp/
+server/tmp/
+client/tmp/
+
+# ─── Caches ───────────────────────────────────────────────────────────────────
+# Chromium download used by Puppeteer for PDF rendering.
+.cache/
+.cache/puppeteer/
+
+# mongod binaries downloaded by mongodb-memory-server for the test suite.
+.mongodb-binaries/
+mongodb-binaries/
+
+# ─── Tests & coverage ─────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+server/src/logs/
+
+# ─── Editors & OS ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+
+# VS Code: keep shared workspace settings, ignore personal ones.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json

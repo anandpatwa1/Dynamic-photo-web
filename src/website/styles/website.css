@@ -1,0 +1,73 @@
+/**
+ * Marketing-site styles.
+ *
+ * Scoped to `.site-shell` wherever it could collide with the CRM, since both
+ * design systems share one Tailwind build and one document.
+ */
+
+.site-shell {
+  background-color: theme('colors.site.paper');
+  color: theme('colors.site.body');
+  font-family: theme('fontFamily.sans');
+  /* Belt-and-braces against the "no horizontal scrolling" requirement: a single
+     over-wide child can otherwise introduce a body-level scrollbar that is very
+     hard to trace back to its source. */
+  overflow-x: clip;
+}
+
+/* Anchor navigation lands below the fixed header rather than under it. */
+.site-shell :where(section[id]) {
+  scroll-margin-top: 5rem;
+}
+
+/* Scroll-triggered reveal, driven by the Reveal component. */
+.site-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.85s theme('transitionTimingFunction.smooth'),
+    transform 0.85s theme('transitionTimingFunction.smooth');
+  will-change: opacity, transform;
+}
+
+.site-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* First-paint entrance for above-the-fold content, which has no scroll event to
+   wait for. Runs from an invisible start so there is no flash of unstyled text. */
+@keyframes site-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.site-enter {
+  opacity: 0;
+  animation: site-enter 1s theme('transitionTimingFunction.smooth') forwards;
+}
+
+/*
+ * Accessibility: honour a reduced-motion preference for everything above.
+ * Content must still be *visible* — disabling the animation without resetting
+ * the start state would leave the whole page at opacity 0.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .site-shell {
+    scroll-behavior: auto;
+  }
+
+  .site-reveal,
+  .site-enter {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    animation: none;
+  }
+}

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /CRM
+Disallow: /crm
+Disallow: /api/
+
+Sitemap: https://dynamic.photography/sitemap.xml
+
+
+Disallow: /quote/
+Disallow: /booking-calendar/
