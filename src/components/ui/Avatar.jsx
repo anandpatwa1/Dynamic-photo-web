@@ -26,7 +26,7 @@ export const Avatar = ({ src, name = '', size = 'md', className, rounded = 'full
         rounded === 'full' ? 'rounded-full' : 'rounded-xl',
         SIZES[size],
         className,
-      )}
+      )} 
       aria-hidden={!name || undefined}
       title={name || undefined}
     >
