@@ -31,7 +31,7 @@ const ICON_SIZES = {
 
 /**
  * The single button primitive for the whole app.
- * `loading` disables interaction and swaps the leading icon for a spinner,
+ * `loading`.  disables interaction and swaps the leading icon for a spinner,
  * keeping the button's width stable so layouts never jump.
  */
 export const Button = forwardRef(function Button(
