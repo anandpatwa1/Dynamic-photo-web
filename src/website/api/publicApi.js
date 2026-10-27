@@ -11,7 +11,7 @@
  * if this hardcoded a relative `/api/v1` — the site would call its own origin
  * and get the SPA's index.html back instead of JSON.
  */
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api/v1' : 'https://apinew.duckdns.org/api/v1')).replace(/\/$/, '');
 
 const requestOnce = async (path, options = {}) => {
   const response = await fetch(`${BASE_URL}${path}`, {

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api/v1' : 'https://apinew.duckdns.org/api/v1')).replace(/\/$/, '');
 
 export const TOKEN_KEY = 'dp_access_token';
 export const REFRESH_KEY = 'dp_refresh_token';

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { api, unwrap } from './axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api/v1' : 'https://apinew.duckdns.org/api/v1')).replace(/\/$/, '');
 const formImage = (file) => {
   const form = new FormData();
   form.append('image', file);
