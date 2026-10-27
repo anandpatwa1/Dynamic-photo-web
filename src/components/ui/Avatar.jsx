@@ -19,7 +19,7 @@ export const Avatar = ({ src, name = '', size = 'md', className, rounded = 'full
   const [failed, setFailed] = useState(false);
   const showImage = src && !failed;
 
-  return (
+  return ( 
     <span
       className={cn(
         'inline-flex shrink-0 select-none items-center justify-center overflow-hidden bg-gradient-to-br from-brand-100 to-brand-200/70 font-semibold text-brand-800 ring-1 ring-inset ring-brand-300/40',
