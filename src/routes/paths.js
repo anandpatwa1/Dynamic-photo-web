@@ -49,6 +49,18 @@ export const CRM = {
   websiteSettings: at('/website/settings'),
   websiteProfiles: at('/website/profiles'),
 
+  // Wedding QR Instagram Follower Gate & Gallery Manager
+  weddingQr: at('/wedding-qr'),
+  weddingQrNew: at('/wedding-qr/new'),
+  weddingQrEdit: (id) => at(`/wedding-qr/${id}/edit`),
+  weddingQrAnalytics: at('/wedding-qr/analytics'),
+
+  // Google Drive Galleries (Independent Module)
+  driveGalleries: at('/drive-galleries'),
+  driveGalleryNew: at('/drive-galleries/new'),
+  driveGalleryEdit: (id) => at(`/drive-galleries/${id}/edit`),
+  publicGallery: (slug) => `/gallery/${slug}`,
+
   // Wedding Quote module (client/src/wedding-quote).
   wq: at('/wedding-quote'),
   wqCreate: at('/wedding-quote/create'),

@@ -127,6 +127,15 @@ const QuoteListInner = () => {
 
   const columns = [
     {
+      key: 'quoteCode',
+      header: 'ID',
+      render: (r) => (
+        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200 inline-block shadow-2xs">
+          #{r.quoteCode || '—'}
+        </span>
+      ),
+    },
+    {
       key: 'label',
       header: T.wizard.packageName,
       render: (r) => (
@@ -235,7 +244,7 @@ const QuoteListInner = () => {
       </div>
 
       <Toolbar>
-        <SearchInput value={query.search} onChange={(search) => setQuery((q) => ({ ...q, search, page: 1 }))} placeholder={T.common.search} className="w-full sm:w-80" />
+        <SearchInput value={query.search} onChange={(search) => setQuery((q) => ({ ...q, search, page: 1 }))} placeholder="Search by ID (#A43), package, client..." className="w-full sm:w-80" />
         <SegmentedControl
           value={query.status}
           onChange={(status) => setQuery((q) => ({ ...q, status, page: 1 }))}

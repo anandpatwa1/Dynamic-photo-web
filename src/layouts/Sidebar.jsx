@@ -31,6 +31,8 @@ import {
   ShieldCheck,
   History,
   Building2,
+  QrCode,
+  HardDrive,
   X,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -107,6 +109,14 @@ export const NAV_SECTIONS = [
       { to: CRM.websiteContact, label: 'Contact', icon: Phone, permission: PERMISSIONS.WEBSITE_MANAGE },
       { to: CRM.websiteSeo, label: 'SEO', icon: Search, permission: PERMISSIONS.WEBSITE_MANAGE },
       { to: CRM.websiteSettings, label: 'Website Settings', icon: Sliders, permission: PERMISSIONS.WEBSITE_MANAGE },
+    ],
+  },
+  {
+    label: 'Wedding QR Projects',
+    items: [
+      { to: CRM.weddingQr, end: true, label: 'QR Projects', icon: QrCode, permission: PERMISSIONS.WEBSITE_MANAGE },
+      { to: CRM.weddingQrAnalytics, label: 'QR Analytics', icon: BarChart3, permission: PERMISSIONS.WEBSITE_MANAGE },
+      { to: CRM.driveGalleries, label: 'Google Drive Galleries', icon: HardDrive, permission: PERMISSIONS.WEBSITE_MANAGE },
     ],
   },
   {

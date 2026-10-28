@@ -135,5 +135,6 @@ export const buildPrintModel = (quote = {}, { dateStyle = 'plain', studio = {} }
     notes: collectNotes(quote),
     footer: t.footer ?? defaultFooter,
     dayCount: days.length,
+    quoteCode: quote.quoteCode ? `#${quote.quoteCode}` : '',
   };
 };

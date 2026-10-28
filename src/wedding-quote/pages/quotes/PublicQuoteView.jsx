@@ -144,7 +144,14 @@ export const PublicQuoteView = () => {
               <Camera className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-widest text-amber-400">Wedding Proposal</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs uppercase tracking-widest text-amber-400">Wedding Proposal</p>
+                {quote.quoteCode && (
+                  <span className="font-mono text-2xs px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30">
+                    #{quote.quoteCode}
+                  </span>
+                )}
+              </div>
               <h2 className="text-sm font-semibold tracking-wide text-stone-100">{studio.name}</h2>
             </div>
           </div>

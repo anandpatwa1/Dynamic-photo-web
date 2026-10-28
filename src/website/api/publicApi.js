@@ -77,4 +77,18 @@ export const publicApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
+
+  getWeddingQrProject: (slug, signal) => request(`/public/wedding-qr/${encodeURIComponent(slug)}`, { signal }),
+  registerWeddingQrGuest: (slug, payload) =>
+    request(`/public/wedding-qr/${encodeURIComponent(slug)}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  trackWeddingQrEvent: (slug, event, payload = {}) =>
+    request(`/public/wedding-qr/${encodeURIComponent(slug)}/track`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, ...payload }),
+    }),
 };

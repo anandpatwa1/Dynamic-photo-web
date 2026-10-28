@@ -202,7 +202,14 @@ const EditorInner = () => {
       {/* toolbar */}
       <div className="sticky top-16 z-20 flex flex-wrap items-center gap-1.5 border-b border-ink-200/70 bg-white/95 px-3 py-2 backdrop-blur">
         <Button as={Link} to={CRM.wqQuotes} variant="ghost" size="sm" iconOnly icon={ArrowLeft} aria-label={T.common.back} />
-        <p className="mr-2 max-w-[10rem] truncate font-semibold text-ink-900 xl:max-w-[14rem]">{quote.packageSnapshot?.name || T.list.untitled}</p>
+        <div className="flex items-center gap-1.5 mr-2">
+          {quote.quoteCode && (
+            <span className="font-mono text-xs px-2 py-0.5 rounded bg-brand-50 text-brand-700 font-bold border border-brand-200 shrink-0">
+              #{quote.quoteCode}
+            </span>
+          )}
+          <p className="max-w-[10rem] truncate font-semibold text-ink-900 xl:max-w-[14rem]">{quote.packageSnapshot?.name || T.list.untitled}</p>
+        </div>
         <ThemePicker themes={themes.length ? themes : [theme]} assignedIds={assigned.themeIds} value={quote.themeId ?? theme._id}
           dayCount={dayCount} disabled={!canEdit} onChange={(themeId) => apply((q) => ({ ...q, themeId }))} />
         <span className="mx-1 h-6 w-px bg-ink-200" />

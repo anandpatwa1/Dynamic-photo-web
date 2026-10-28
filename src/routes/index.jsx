@@ -8,6 +8,8 @@ import { CRM_BASE } from './paths';
 const PublicBookingCalendar = lazy(() => import('@/wedding-quote/pages/bookings/PublicBookingCalendar'));
 const PublicQuoteView = lazy(() => import('@/wedding-quote/pages/quotes/PublicQuoteView'));
 const PackageCustomizer = lazy(() => import('@/website/pages/PackageCustomizer').then((m) => ({ default: m.PackageCustomizer })));
+const WeddingQrLanding = lazy(() => import('@/website/pages/WeddingQrLanding'));
+const DriveGalleryView = lazy(() => import('@/website/pages/DriveGalleryView'));
 const SiteRoot = lazy(() => import('@/website/SiteRoot'));
 const CrmRoot = lazy(() => import('@/crm/CrmRoot'));
 const PublicProfileResolver = lazy(() => import('@/public-profile/PublicProfileResolver').then((module) => ({ default: module.PublicProfileResolver })));
@@ -40,6 +42,8 @@ export const AppRoutes = () => (
       <Route path="/quote/:token" element={<PublicQuoteView />} />
       <Route path="/customize" element={<PackageCustomizer />} />
       <Route path="/build-package" element={<PackageCustomizer />} />
+      <Route path="/photos/:slug" element={<WeddingQrLanding />} />
+      <Route path="/gallery/:slug" element={<DriveGalleryView />} />
       <Route path={`${CRM_BASE}/*`} element={<CrmRoot />} />
       <Route path="/:slug" element={<PublicProfileResolver />} />
       <Route path="/*" element={<SiteRoot />} />

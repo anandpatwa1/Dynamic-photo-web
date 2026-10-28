@@ -525,6 +525,28 @@ export const QuoteCanvas = memo(
             {renderedContent}
           </div>
         </div>
+        {/* Subtle, small printed quote code tag (e.g. #A43) in bottom-right corner */}
+        {(quote.quoteCode || model.quoteCode) && (
+          <div
+            data-wq-element="quote-id-tag"
+            style={{
+              position: 'absolute',
+              right: sz(Math.max(16, padRight - 6)),
+              bottom: sz(Math.max(12, padBottom - 14)),
+              fontSize: sz(14),
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              color: colors.muted,
+              opacity: 0.55,
+              fontWeight: 700,
+              letterSpacing: '0.8px',
+              pointerEvents: 'none',
+              zIndex: 25,
+              textTransform: 'uppercase',
+            }}
+          >
+            {model.quoteCode || `#${quote.quoteCode}`}
+          </div>
+        )}
       </div>
     );
   }),

@@ -41,6 +41,15 @@ const WebsiteSeo = lazy(() => import('@/pages/website/WebsiteSeo'));
 const WebsiteSettings = lazy(() => import('@/pages/website/WebsiteSettings'));
 const PublicProfiles = lazy(() => import('@/pages/website/PublicProfiles'));
 
+// Wedding QR Instagram Follower Gate & Gallery Manager
+const WeddingQrProjects = lazy(() => import('@/pages/wedding-qr/WeddingQrProjects'));
+const WeddingQrProjectForm = lazy(() => import('@/pages/wedding-qr/WeddingQrProjectForm'));
+const WeddingQrAnalytics = lazy(() => import('@/pages/wedding-qr/WeddingQrAnalytics'));
+
+// Google Drive Galleries (Independent Module)
+const DriveGalleriesList = lazy(() => import('@/pages/drive-galleries/DriveGalleriesList'));
+const DriveGalleryForm = lazy(() => import('@/pages/drive-galleries/DriveGalleryForm'));
+
 /**
  * Mounted at `/CRM/*`, so every path here is relative to that prefix. Absolute
  * targets come from `CRM` in ./paths — never written inline.
@@ -93,6 +102,22 @@ export const CrmRoutes = () => (
           <Route element={<ProtectedRoute permission={PERMISSIONS.ACTIVITY_VIEW} />}><Route path="activity" element={<ActivityLogs />} /></Route>
 
           <Route element={<ProtectedRoute permission={PERMISSIONS.WEBSITE_MANAGE} />}>
+            <Route path="wedding-qr">
+              <Route index element={<WeddingQrProjects />} />
+              <Route path="analytics" element={<WeddingQrAnalytics />} />
+              <Route path="new" element={<WeddingQrProjectForm />} />
+              <Route path=":id/edit" element={<WeddingQrProjectForm />} />
+            </Route>
+            <Route path="wedding-qr/analytics" element={<WeddingQrAnalytics />} />
+            <Route path="qr-analytics" element={<WeddingQrAnalytics />} />
+
+            {/* Google Drive Galleries */}
+            <Route path="drive-galleries">
+              <Route index element={<DriveGalleriesList />} />
+              <Route path="new" element={<DriveGalleryForm />} />
+              <Route path=":id/edit" element={<DriveGalleryForm />} />
+            </Route>
+
             {/* Website Management. `index` redirects the bare /CRM/website. */}
             <Route path="website">
               <Route index element={<Navigate to={CRM.websiteHomepage} replace />} />

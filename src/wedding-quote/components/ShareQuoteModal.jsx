@@ -132,6 +132,11 @@ export const ShareQuoteModal = ({ open, onClose, quoteId, onUpdated }) => {
         <div className="flex items-center gap-2">
           <Share2 className="h-5 w-5 text-brand-600" />
           <span>Share Proposal with Client</span>
+          {quote?.quoteCode && (
+            <span className="font-mono text-xs px-2 py-0.5 rounded bg-brand-50 text-brand-700 font-bold border border-brand-200">
+              #{quote.quoteCode}
+            </span>
+          )}
         </div>
       }
     >
