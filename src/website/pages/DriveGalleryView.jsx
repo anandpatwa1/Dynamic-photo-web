@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -28,10 +28,99 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { driveGalleryApi } from '@/api/driveGalleryApi';
+import { driveGalleryApi, PUBLIC_API_BASE } from '@/api/driveGalleryApi';
 
-// Safe chunk size for progressive auto-loading (24 photos per batch)
+// Progressive chunk size (24 photos per batch - fast, responsive & memory-safe)
 const CHUNK_SIZE = 24;
+
+/**
+ * Isolated photo card component.
+ * Manages its own fallback chain (Google CDN -> Drive Thumbnail -> Backend Proxy)
+ * without triggering parent re-renders or infinite cascading network requests.
+ */
+const GalleryPhotoCard = React.memo(
+  ({ photo, index, isDark, radius, allowDownloads, onOpenLightbox, onDownload, showFilenames }) => {
+    const [retryStage, setRetryStage] = useState(0);
+
+    const imgSrc = useMemo(() => {
+      if (!photo?.fileId) return '';
+      if (retryStage === 0) {
+        return `https://lh3.googleusercontent.com/d/${photo.fileId}=w600`;
+      }
+      if (retryStage === 1) {
+        return `https://drive.google.com/thumbnail?id=${photo.fileId}&sz=w600`;
+      }
+      if (retryStage === 2) {
+        return `${PUBLIC_API_BASE}/public/drive-galleries/image/${photo.fileId}?sz=w600`;
+      }
+      return '';
+    }, [photo?.fileId, retryStage]);
+
+    const handleError = () => {
+      setRetryStage((prev) => prev + 1);
+    };
+
+    if (retryStage >= 3) {
+      return (
+        <div
+          className={`relative aspect-[3/4] overflow-hidden flex flex-col items-center justify-center p-4 text-center opacity-40 space-y-2 border ${radius} ${
+            isDark ? 'bg-zinc-900 border-white/5 text-zinc-400' : 'bg-zinc-100 border-black/5 text-zinc-600'
+          }`}
+        >
+          <ImageIcon className="w-8 h-8" />
+          <span className="text-4xs font-mono truncate max-w-full">{photo.name || 'Photo'}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        onClick={() => onOpenLightbox(index)}
+        className={`group relative aspect-[3/4] overflow-hidden cursor-pointer shadow-xs transition-all duration-300 hover:shadow-xl ${radius} ${
+          isDark ? 'bg-zinc-900 border border-white/5' : 'bg-zinc-100 border border-black/5'
+        }`}
+      >
+        <img
+          src={imgSrc}
+          alt={photo.name || 'Photograph'}
+          loading="lazy"
+          decoding="async"
+          onError={handleError}
+          className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
+        />
+
+        {/* Dark subtle hover overlay */}
+        <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-3 text-white">
+          <div className="flex justify-between items-start">
+            <span className="text-4xs font-mono bg-black/60 px-1.5 py-0.5 rounded text-white/80">
+              #{index + 1}
+            </span>
+            {allowDownloads && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownload(photo);
+                }}
+                className="p-1.5 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-xs transition"
+                title="Download high-resolution image"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-0.5">
+            {showFilenames && (
+              <p className="text-3xs font-mono truncate text-white/90">{photo.name}</p>
+            )}
+            <p className="text-4xs text-white/60 font-mono">Click to view full photo</p>
+          </div>
+        </div>
+      </div>
+    );
+  },
+);
 
 export const DriveGalleryView = () => {
   const { slug } = useParams();
@@ -49,14 +138,17 @@ export const DriveGalleryView = () => {
   const isLoadingMoreRef = useRef(false);
   const sentinelRef = useRef(null);
 
-  // Track images that failed all sources so we render clean placeholder
-  const [failedImages, setFailedImages] = useState(new Set());
-
   // Lightbox state
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPlayingSlideshow, setIsPlayingSlideshow] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Lightbox image candidate stage
+  const [lightboxStage, setLightboxStage] = useState(0);
+
+  // Cover image fallback stage
+  const [coverStage, setCoverStage] = useState(0);
 
   // Touch swipe support in lightbox
   const touchStartX = useRef(null);
@@ -118,6 +210,9 @@ export const DriveGalleryView = () => {
     return list;
   }, [uniquePhotos, sortOrder]);
 
+  const totalPhotosRef = useRef(0);
+  totalPhotosRef.current = sortedPhotos.length;
+
   // Reset batch count when sort order changes
   const handleSortChange = (newSort) => {
     setSortOrder(newSort);
@@ -127,19 +222,19 @@ export const DriveGalleryView = () => {
   // Safe throttled batch loader for automatic scrolling
   const loadNextBatch = useCallback(() => {
     if (isLoadingMoreRef.current) return;
-    if (visibleCount >= sortedPhotos.length) return;
+    if (visibleCount >= totalPhotosRef.current) return;
 
     isLoadingMoreRef.current = true;
     setLoadingMore(true);
 
     setTimeout(() => {
-      setVisibleCount((prev) => Math.min(prev + CHUNK_SIZE, sortedPhotos.length));
+      setVisibleCount((prev) => Math.min(prev + CHUNK_SIZE, totalPhotosRef.current));
       setLoadingMore(false);
       isLoadingMoreRef.current = false;
-    }, 200);
-  }, [visibleCount, sortedPhotos.length]);
+    }, 250);
+  }, [visibleCount]);
 
-  // Infinite scroll observer: automatically loads more as user scrolls down
+  // Infinite scroll observer: automatically loads more as user scrolls down smoothly
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
@@ -153,7 +248,7 @@ export const DriveGalleryView = () => {
       },
       {
         root: null,
-        rootMargin: '450px 0px',
+        rootMargin: '250px 0px',
         threshold: 0.05,
       },
     );
@@ -161,6 +256,11 @@ export const DriveGalleryView = () => {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [loadNextBatch]);
+
+  // Reset lightbox fallback stage on photo change
+  useEffect(() => {
+    setLightboxStage(0);
+  }, [lightboxIndex]);
 
   // Handle Share
   const handleShare = async () => {
@@ -324,7 +424,25 @@ export const DriveGalleryView = () => {
 
   const visiblePhotos = sortedPhotos.slice(0, visibleCount);
   const allowDownloads = gallery.gallerySettings?.allowDownloads !== false;
-  const coverUrl = gallery.coverImage?.viewUrl || gallery.coverImage?.thumbnailUrl;
+
+  // Cover image with multi-tier fallback
+  const coverUrl = (() => {
+    const fileId = gallery.coverImage?.fileId;
+    if (!fileId) return gallery.coverImage?.viewUrl || gallery.coverImage?.thumbnailUrl || '';
+    if (coverStage === 0) return `https://lh3.googleusercontent.com/d/${fileId}=w1600`;
+    if (coverStage === 1) return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
+    if (coverStage === 2) return `${PUBLIC_API_BASE}/public/drive-galleries/image/${fileId}?sz=w1600`;
+    return '';
+  })();
+
+  // Lightbox high-res image with multi-tier fallback
+  const lightboxSrc = (() => {
+    if (!currentPhoto?.fileId) return '';
+    if (lightboxStage === 0) return `https://lh3.googleusercontent.com/d/${currentPhoto.fileId}=w2048`;
+    if (lightboxStage === 1) return `https://drive.google.com/thumbnail?id=${currentPhoto.fileId}&sz=w1600`;
+    if (lightboxStage === 2) return `${PUBLIC_API_BASE}/public/drive-galleries/image/${currentPhoto.fileId}?sz=w1600`;
+    return '';
+  })();
 
   return (
     <div
@@ -397,13 +515,8 @@ export const DriveGalleryView = () => {
             <img
               src={coverUrl}
               alt={gallery.title}
+              onError={() => setCoverStage((prev) => prev + 1)}
               className="absolute inset-0 w-full h-full object-cover scale-105 filter brightness-[0.7] animate-fade-in"
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                if (gallery.coverImage?.fileId) {
-                  e.currentTarget.src = `/api/v1/public/drive-galleries/image/${gallery.coverImage.fileId}?sz=w1600`;
-                }
-              }}
             />
             {/* Dark Vignette Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
@@ -452,41 +565,36 @@ export const DriveGalleryView = () => {
             </div>
           </div>
         ) : (
-          <div className="py-16 px-6 text-center max-w-3xl mx-auto space-y-4">
-            <h1 className="text-3xl sm:text-4xl font-serif font-bold">{gallery.title}</h1>
-            {gallery.clientNames && (
-              <p className="text-sm uppercase tracking-widest font-mono" style={{ color: accent }}>
-                {gallery.clientNames}
-              </p>
-            )}
+          <div className="p-8 sm:p-14 max-w-5xl mx-auto space-y-4">
+            <h1 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight">
+              {gallery.title}
+            </h1>
             {gallery.description && (
-              <p className="text-xs sm:text-sm opacity-70 leading-relaxed">{gallery.description}</p>
+              <p className="text-sm opacity-70 max-w-2xl">{gallery.description}</p>
             )}
           </div>
         )}
       </section>
 
-      {/* ─── Gallery Content & Photo Grid ─── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-6">
-        {/* Sort & Count Toolbar */}
+      {/* ─── Main Gallery Grid & Controls ─── */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* Gallery Controls Header */}
         {sortedPhotos.length > 0 && (
-          <div
-            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-xl border text-xs transition-colors ${
-              isDark ? 'bg-zinc-900/60 border-white/10 text-zinc-300' : 'bg-white border-black/10 text-zinc-700'
-            }`}
-          >
-            <div className="flex items-center gap-2 text-2xs font-mono uppercase tracking-wider">
-              <span>
-                Showing <strong>{Math.min(visibleCount, sortedPhotos.length)}</strong> of <strong>{sortedPhotos.length}</strong> photos
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center gap-2">
+              <span className="text-2xs font-mono uppercase tracking-wider opacity-60">
+                Showing {Math.min(visibleCount, sortedPhotos.length)} of {sortedPhotos.length} photos
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-3xs uppercase font-mono tracking-wider opacity-60">Sort By:</span>
+              <span className="text-2xs font-mono uppercase tracking-wider opacity-60 flex items-center gap-1">
+                <SlidersHorizontal className="w-3 h-3" /> Sort by:
+              </span>
               <select
                 value={sortOrder}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium cursor-pointer transition focus:outline-hidden ${
+                className={`text-2xs font-mono px-3 py-1.5 rounded-lg border outline-none cursor-pointer transition ${
                   isDark
                     ? 'bg-zinc-800 border-white/10 text-zinc-200'
                     : 'bg-zinc-50 border-black/10 text-zinc-800'
@@ -503,148 +611,79 @@ export const DriveGalleryView = () => {
 
         {sortedPhotos.length > 0 ? (
           <>
-            {/* Stable Row-by-Row Grid (Photos never jump or reflow across columns) */}
+            {/* Stable Row-by-Row Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-              {visiblePhotos.map((photo, index) => {
-                const isFailed = failedImages.has(photo.fileId);
-
-                return (
-                  <div
-                    key={photo.fileId || `photo-${index}`}
-                    onClick={() => handleOpenLightbox(index)}
-                    className={`group relative aspect-[3/4] overflow-hidden cursor-pointer shadow-xs transition-all duration-300 hover:shadow-xl ${radius} ${
-                      isDark ? 'bg-zinc-900 border border-white/5' : 'bg-zinc-100 border border-black/5'
-                    }`}
-                  >
-                    {!isFailed ? (
-                      <img
-                        src={photo.thumbnailUrl || `https://lh3.googleusercontent.com/d/${photo.fileId}=w800`}
-                        alt={photo.name}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
-                        onError={(e) => {
-                          // CRITICAL: Stop infinite loop immediately
-                          e.currentTarget.onerror = null;
-
-                          // Try our secure server image streaming proxy once
-                          const proxyUrl = `/api/v1/public/drive-galleries/image/${photo.fileId}?sz=w800`;
-                          if (!e.currentTarget.src.includes('/api/v1/public/drive-galleries/image/')) {
-                            e.currentTarget.src = proxyUrl;
-                          } else {
-                            // If proxy also fails, mark failed and render placeholder card
-                            setFailedImages((prev) => new Set(prev).add(photo.fileId));
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center opacity-40 space-y-2">
-                        <ImageIcon className="w-8 h-8" />
-                        <span className="text-4xs font-mono truncate max-w-full">{photo.name}</span>
-                      </div>
-                    )}
-
-                    {/* Dark subtle hover overlay */}
-                    <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-3 text-white">
-                      <div className="flex justify-between items-start">
-                        <span className="text-4xs font-mono bg-black/60 px-1.5 py-0.5 rounded text-white/80">
-                          #{index + 1}
-                        </span>
-                        {allowDownloads && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDownload(photo);
-                            }}
-                            className="p-1.5 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-xs transition"
-                            title="Download high-resolution image"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="space-y-0.5">
-                        {gallery.gallerySettings?.showFilenames && (
-                          <p className="text-3xs font-mono truncate text-white/90">{photo.name}</p>
-                        )}
-                        <div className="flex items-center gap-1 text-4xs uppercase tracking-widest text-white/70 font-mono">
-                          <Eye className="w-3 h-3" /> Click to enlarge
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {visiblePhotos.map((photo, index) => (
+                <GalleryPhotoCard
+                  key={photo.fileId || `photo-${index}`}
+                  photo={photo}
+                  index={index}
+                  isDark={isDark}
+                  radius={radius}
+                  allowDownloads={allowDownloads}
+                  showFilenames={gallery.gallerySettings?.showFilenames}
+                  onOpenLightbox={handleOpenLightbox}
+                  onDownload={handleDownload}
+                />
+              ))}
             </div>
 
-            {/* Invisible sentinel for smooth auto-loading on scroll */}
-            <div ref={sentinelRef} className="h-6 w-full pointer-events-none" />
-
-            {/* Seamless Auto-Loading Indicator */}
-            {visibleCount < sortedPhotos.length && (
-              <div className="pt-6 pb-8 text-center flex flex-col items-center justify-center space-y-2">
-                <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 font-mono">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ color: accent }} />
-                  <span>
-                    Loading more photographs ({visibleCount} of {sortedPhotos.length})...
-                  </span>
+            {/* Infinite Scroll Sentinel */}
+            <div ref={sentinelRef} className="py-8 flex justify-center items-center">
+              {loadingMore && visibleCount < sortedPhotos.length && (
+                <div className="flex items-center gap-2 text-xs font-mono opacity-70">
+                  <div className="w-4 h-4 rounded-full border-2 border-[#D4AF37] border-t-transparent animate-spin" />
+                  <span>Loading more memories...</span>
                 </div>
-              </div>
-            )}
-
-            {/* End of Gallery Indicator */}
-            {visibleCount >= sortedPhotos.length && sortedPhotos.length > 0 && (
-              <div className="pt-8 pb-4 text-center">
-                <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-3xs font-mono uppercase tracking-widest text-zinc-400 bg-white/5 border border-white/10">
-                  <Check className="w-3 h-3 text-emerald-400" />
+              )}
+              {visibleCount >= sortedPhotos.length && (
+                <p className="text-3xs uppercase tracking-widest opacity-40 font-mono text-center">
                   All {sortedPhotos.length} photographs loaded
-                </span>
-              </div>
-            )}
+                </p>
+              )}
+            </div>
           </>
         ) : (
-          <div className="text-center py-20 space-y-3 opacity-60">
-            <ImageIcon className="w-12 h-12 mx-auto stroke-1" />
-            <p className="text-sm">No photographs found in this gallery yet.</p>
+          <div className="py-24 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center opacity-40">
+              <ImageIcon className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold">No photographs found in this gallery yet</h3>
+              <p className="text-xs opacity-60 max-w-sm mx-auto">
+                Please check the Google Drive folder link or refresh the folder contents from the studio admin panel.
+              </p>
+            </div>
           </div>
         )}
       </main>
 
-      {/* ─── Footer Section ─── */}
+      {/* ─── Footer ─── */}
       <footer
-        className={`border-t py-12 px-6 text-center space-y-4 text-xs transition-colors ${
-          isDark ? 'border-white/10 text-zinc-400' : 'border-black/10 text-zinc-600'
+        className={`mt-16 border-t py-12 px-6 text-center space-y-3 transition-colors ${
+          isDark ? 'border-white/10 bg-[#0A0B0D]' : 'border-black/10 bg-white'
         }`}
       >
-        {gallery.branding?.introMessage && (
-          <p className="max-w-xl mx-auto italic leading-relaxed text-sm">
-            "{gallery.branding.introMessage}"
-          </p>
-        )}
-        <div className="pt-2 space-y-1">
-          <p className="font-serif tracking-wider uppercase text-2xs font-semibold">
-            {gallery.branding?.studioName || 'Dynamic Photography'}
-          </p>
-          <p className="text-3xs opacity-60">
-            {gallery.branding?.footerText || 'All original photographs preserved on Google Drive.'}
-          </p>
-        </div>
+        <p className="text-xs font-serif tracking-wider uppercase font-medium">
+          {gallery.branding?.studioName || 'Dynamic Photography'}
+        </p>
+        <p className="text-2xs opacity-50 font-mono">
+          {gallery.branding?.footerText || 'Crafted with passion by Dynamic Photography'}
+        </p>
       </footer>
 
-      {/* ─── Lightbox Modal ─── */}
+      {/* ─── Full-Screen Lightbox Modal ─── */}
       {lightboxIndex !== null && currentPhoto && (
         <div
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between select-none animate-fade-in"
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col justify-between select-none animate-fade-in"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Lightbox Topbar */}
-          <div className="flex items-center justify-between p-4 sm:p-6 text-white/90 z-20 bg-gradient-to-b from-black/80 to-transparent">
-            <div className="flex items-center gap-3">
-              <span className="text-2xs font-mono uppercase tracking-widest text-[#D4AF37]">
+          {/* Lightbox Top Bar */}
+          <div className="relative z-30 p-4 sm:p-6 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent">
+            <div className="flex items-center gap-3 text-white">
+              <span className="text-xs font-mono tracking-widest bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
                 {lightboxIndex + 1} / {sortedPhotos.length}
               </span>
               <span className="text-xs text-white/60 font-mono truncate max-w-[200px] hidden sm:inline">
@@ -713,13 +752,10 @@ export const DriveGalleryView = () => {
             <div className="relative max-h-full max-w-full flex items-center justify-center">
               <img
                 key={currentPhoto.fileId}
-                src={currentPhoto.viewUrl || `https://lh3.googleusercontent.com/d/${currentPhoto.fileId}=w2048`}
-                alt={currentPhoto.name}
+                src={lightboxSrc}
+                alt={currentPhoto.name || 'Photo'}
                 className="max-h-[82vh] max-w-[92vw] w-auto h-auto object-contain select-none shadow-2xl animate-scale-in"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = `/api/v1/public/drive-galleries/image/${currentPhoto.fileId}?sz=w1600`;
-                }}
+                onError={() => setLightboxStage((prev) => prev + 1)}
               />
             </div>
 
@@ -749,12 +785,12 @@ export const DriveGalleryView = () => {
                   }`}
                 >
                   <img
-                    src={p.thumbnailUrl || `https://lh3.googleusercontent.com/d/${p.fileId}=w200`}
+                    src={`https://lh3.googleusercontent.com/d/${p.fileId}=w200`}
                     alt=""
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
-                      e.currentTarget.src = `/api/v1/public/drive-galleries/image/${p.fileId}?sz=w200`;
+                      e.currentTarget.src = `${PUBLIC_API_BASE}/public/drive-galleries/image/${p.fileId}?sz=w200`;
                     }}
                   />
                 </button>

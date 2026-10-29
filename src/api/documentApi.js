@@ -1,6 +1,9 @@
 import { api, unwrap, unwrapWithMeta } from './axios';
 
-const BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api/v1' : 'https://apinew.duckdns.org/api/v1')).replace(/\/$/, '');
+const BASE = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5100/api/v1' : 'https://apinew.duckdns.org/api/v1')
+).replace(/\/$/, '');
 
 export const documentApi = {
   list: (params) => api.get('/documents', { params }).then(unwrapWithMeta),

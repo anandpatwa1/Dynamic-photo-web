@@ -33,7 +33,7 @@ import {
   Textarea,
 } from '@/components/ui';
 import { CRM } from '@/routes/paths';
-import { driveGalleryApi } from '@/api/driveGalleryApi';
+import { driveGalleryApi, PUBLIC_API_BASE } from '@/api/driveGalleryApi';
 
 const ACCENT_PRESETS = [
   { name: 'Champagne Gold', value: '#D4AF37' },
@@ -44,6 +44,69 @@ const ACCENT_PRESETS = [
   { name: 'Amethyst Purple', value: '#8B5CF6' },
   { name: 'Pure Platinum', value: '#E2E8F0' },
 ];
+
+/**
+ * Isolated thumbnail card for admin cover selection.
+ * Handles fallbacks cleanly without causing re-render loops.
+ */
+const AdminThumbnailCard = ({ photo, idx, isCover, onSelectCover }) => {
+  const [retryStage, setRetryStage] = useState(0);
+
+  const thumbSrc = useMemo(() => {
+    if (!photo?.fileId) return '';
+    if (retryStage === 0) return `https://lh3.googleusercontent.com/d/${photo.fileId}=w300`;
+    if (retryStage === 1) return `https://drive.google.com/thumbnail?id=${photo.fileId}&sz=w300`;
+    if (retryStage === 2) return `${PUBLIC_API_BASE}/public/drive-galleries/image/${photo.fileId}?sz=w300`;
+    return '';
+  }, [photo?.fileId, retryStage]);
+
+  return (
+    <div
+      onClick={() => onSelectCover(photo)}
+      title={`${photo.name || 'Photo'} • Click to set as cover`}
+      className={`group relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all bg-white shadow-2xs hover:shadow-md ${
+        isCover ? 'border-brand-600 ring-2 ring-brand-400 scale-[1.03] z-10' : 'border-ink-200 hover:border-brand-400'
+      }`}
+    >
+      {retryStage < 3 ? (
+        <img
+          src={thumbSrc}
+          alt={photo.name || 'Photo'}
+          loading="lazy"
+          decoding="async"
+          onError={() => setRetryStage((prev) => prev + 1)}
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center p-1 bg-ink-100 text-ink-400">
+          <ImageIcon className="w-4 h-4 opacity-50" />
+          <span className="text-4xs truncate max-w-full px-1">{photo.name || 'Photo'}</span>
+        </div>
+      )}
+
+      {/* Photo Index Tag */}
+      <span className="absolute bottom-0.5 right-0.5 text-4xs font-mono bg-black/70 text-white px-1 py-0.2 rounded-xs pointer-events-none">
+        #{idx + 1}
+      </span>
+
+      {/* Active Cover Overlay */}
+      {isCover && (
+        <div className="absolute inset-0 bg-brand-600/35 flex flex-col items-center justify-center p-1">
+          <span className="bg-brand-600 text-white text-4xs font-bold uppercase px-1.5 py-0.5 rounded shadow">
+            Cover
+          </span>
+        </div>
+      )}
+
+      {/* Hover Name Overlay */}
+      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1 text-center pointer-events-none">
+        <span className="text-4xs text-white line-clamp-2 font-mono leading-tight">
+          {photo.name}
+        </span>
+      </div>
+    </div>
+  );
+};
 
 export const DriveGalleryForm = () => {
   const navigate = useNavigate();
@@ -220,6 +283,32 @@ export const DriveGalleryForm = () => {
         error: err?.response?.data?.message || 'Could not connect to Google Drive folder',
       });
       toast.error(err?.response?.data?.message || 'Failed to validate folder');
+    } finally {
+      setValidatingFolder(false);
+    }
+  };
+
+  // Sync latest photos directly from Google Drive
+  const handleSyncFromDrive = async () => {
+    if (!id) {
+      return handleValidateFolder();
+    }
+    try {
+      setValidatingFolder(true);
+      const res = await driveGalleryApi.syncGallery(id);
+      const full = await driveGalleryApi.getGallery(id);
+      const loaded = full.cachedPhotos || [];
+      setPreviewPhotos(loaded);
+      setTotalPhotosCount(loaded.length);
+      setFolderValidation({
+        valid: true,
+        photoCount: loaded.length,
+        samplePhotos: loaded,
+        message: `Synced successfully! Found ${loaded.length} photos.`,
+      });
+      toast.success(res.message || `Successfully synced ${loaded.length} photos from Google Drive!`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to sync folder from Google Drive');
     } finally {
       setValidatingFolder(false);
     }
@@ -524,8 +613,21 @@ export const DriveGalleryForm = () => {
                   onClick={handleValidateFolder}
                   disabled={validatingFolder}
                 >
-                  {validatingFolder ? 'Validating...' : 'Validate Folder'}
+                  {validatingFolder ? 'Connecting...' : 'Validate Folder'}
                 </Button>
+                {isEditing && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon={RefreshCw}
+                    onClick={handleSyncFromDrive}
+                    disabled={validatingFolder}
+                    title="Fetch and sync all photos directly from Google Drive"
+                  >
+                    {validatingFolder ? 'Syncing...' : 'Sync Latest Photos'}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -615,15 +717,12 @@ export const DriveGalleryForm = () => {
                   <div className="flex items-center gap-3 p-2.5 rounded-lg bg-brand-50/60 border border-brand-200/80 text-xs text-brand-950">
                     <div className="w-10 h-10 rounded-md overflow-hidden bg-ink-200 shrink-0 border border-brand-300">
                       <img
-                        src={
-                          formData.coverImage.thumbnailUrl ||
-                          `https://lh3.googleusercontent.com/d/${formData.coverImage.fileId}=w200`
-                        }
+                        src={`https://lh3.googleusercontent.com/d/${formData.coverImage.fileId}=w200`}
                         alt="Cover"
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = `/api/v1/public/drive-galleries/image/${formData.coverImage.fileId}?sz=w200`;
+                          e.currentTarget.src = `${PUBLIC_API_BASE}/public/drive-galleries/image/${formData.coverImage.fileId}?sz=w200`;
                         }}
                       />
                     </div>
@@ -645,60 +744,15 @@ export const DriveGalleryForm = () => {
                 <div className="max-h-[520px] overflow-y-auto p-3 rounded-xl border border-ink-200 bg-ink-50/30 shadow-inner">
                   {filteredPreviewPhotos.length > 0 ? (
                     <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
-                      {filteredPreviewPhotos.map((photo, idx) => {
-                        const isCover = formData.coverImage?.fileId === photo.fileId;
-                        const thumbSrc =
-                          photo.thumbnailUrl ||
-                          (photo.fileId ? `https://lh3.googleusercontent.com/d/${photo.fileId}=w300` : '');
-
-                        return (
-                          <div
-                            key={photo.fileId || `photo-${idx}`}
-                            onClick={() => handleSelectCover(photo)}
-                            title={`${photo.name || 'Photo'} • Click to set as cover`}
-                            className={`group relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all bg-white shadow-2xs hover:shadow-md ${
-                              isCover
-                                ? 'border-brand-600 ring-2 ring-brand-400 scale-[1.03] z-10'
-                                : 'border-ink-200 hover:border-brand-400'
-                            }`}
-                          >
-                            <img
-                              src={thumbSrc}
-                              alt={photo.name}
-                              loading="lazy"
-                              decoding="async"
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
-                              onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                if (photo.fileId) {
-                                  e.currentTarget.src = `/api/v1/public/drive-galleries/image/${photo.fileId}?sz=w300`;
-                                }
-                              }}
-                            />
-
-                            {/* Photo Index Tag */}
-                            <span className="absolute bottom-0.5 right-0.5 text-4xs font-mono bg-black/70 text-white px-1 py-0.2 rounded-xs pointer-events-none">
-                              #{idx + 1}
-                            </span>
-
-                            {/* Active Cover Overlay */}
-                            {isCover && (
-                              <div className="absolute inset-0 bg-brand-600/35 flex flex-col items-center justify-center p-1">
-                                <span className="bg-brand-600 text-white text-4xs font-bold uppercase px-1.5 py-0.5 rounded shadow">
-                                  Cover
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Hover Name Overlay */}
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1 text-center pointer-events-none">
-                              <span className="text-4xs text-white line-clamp-2 font-mono leading-tight">
-                                {photo.name}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {filteredPreviewPhotos.map((photo, idx) => (
+                        <AdminThumbnailCard
+                          key={photo.fileId || `thumb-${idx}`}
+                          photo={photo}
+                          idx={idx}
+                          isCover={formData.coverImage?.fileId === photo.fileId}
+                          onSelectCover={handleSelectCover}
+                        />
+                      ))}
                     </div>
                   ) : (
                     <div className="py-12 text-center text-xs text-ink-500">

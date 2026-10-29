@@ -1,24 +1,43 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
+import fs from 'node:fs';
 
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+// Helper to auto-read backend PORT from server/.env
+const getBackendPort = () => {
+  try {
+    const envPath = path.resolve(__dirname, '../server/.env');
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf8');
+      const match = content.match(/^PORT\s*=\s*(\d+)/m);
+      if (match?.[1]) return match[1];
+    }
+  } catch {}
+  return '5100';
+};
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const backendPort = env.VITE_BACKEND_PORT || getBackendPort();
+  const backendTarget = env.VITE_API_PROXY_TARGET || `http://localhost:${backendPort}`;
+
+  return {
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
     },
-  },
-  server: {
-    host: '0.0.0.0',
-    port: 5174,
-    strictPort: true,
-    proxy: {
-      // Lets the SPA call same-origin `/api/...` in dev without CORS friction.
-      '/api': { target: 'http://localhost:5100', changeOrigin: true },
-      '/uploads': { target: 'http://localhost:5100', changeOrigin: true },
+    server: {
+      host: '0.0.0.0',
+      port: 5174,
+      strictPort: true,
+      proxy: {
+        // Automatically targets the backend port defined in server/.env
+        '/api': { target: backendTarget, changeOrigin: true },
+        '/uploads': { target: backendTarget, changeOrigin: true },
+      },
     },
-  },
   build: {
     outDir: 'dist',
     sourcemap: false,
@@ -69,4 +88,5 @@ export default defineConfig({
       },
     },
   },
+};
 });

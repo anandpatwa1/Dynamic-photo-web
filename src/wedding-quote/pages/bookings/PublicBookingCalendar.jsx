@@ -13,7 +13,7 @@ export default function PublicBookingCalendar() {
   useEffect(()=>{
     if(!credential)return;
     const controller=new AbortController();setLoading(true);setError('');setData(null);
-    const base = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api/v1' : 'https://apinew.duckdns.org/api/v1')).replace(/\/$/, '');
+    const base = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5100/api/v1' : 'https://apinew.duckdns.org/api/v1')).replace(/\/$/, '');
     fetch(`${base}/booking-calendar/${encodeURIComponent(slug)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...view,pin:credential,scope:listMode?'all':'month'}),signal:controller.signal}).then(async r=>{const body=await r.json().catch(()=>({}));if(!r.ok)throw new Error(body.message || (r.status===429?'Too many attempts. Try again later.':'Could not open calendar'));return body.data;}).then(setData).catch(e=>{if(e.name!=='AbortError'){setError(e.message);setCredential('');}}).finally(()=>{if(!controller.signal.aborted)setLoading(false)});
     return()=>controller.abort();
   },[slug,credential,view.year,view.month,listMode]);

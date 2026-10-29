@@ -3,9 +3,10 @@ Allow: /
 Disallow: /CRM
 Disallow: /crm
 Disallow: /api/
-
-Sitemap: https://dynamic.photography/sitemap.xml
-
-
+Allow: /api/v1/public/site$
+Allow: /api/v1/public/portfolio/
+Allow: /api/v1/public/profiles/
 Disallow: /quote/
 Disallow: /booking-calendar/
+
+Sitemap: https://dynamic.photography/sitemap.xml

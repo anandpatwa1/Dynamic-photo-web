@@ -1,7 +1,11 @@
 import { api } from './axios';
 import axios from 'axios';
 
-const PUBLIC_API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
+export const PUBLIC_API_BASE = (
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5100/api/v1' : 'https://apinew.duckdns.org/api/v1')
+).replace(/\/$/, '');
 
 /**
  * Public Axios instance (unauthenticated, never attaches auth token)
